@@ -3,11 +3,6 @@
 import axios from 'axios';
 import { AuthRepository } from '/src/modules/iam/services/AuthRepository.js';
 
-/**
- * Implementación del Repositorio de Autenticación usando Axios
- */
-baseUrl: import.meta.env.VITE_API_BASE_URL;
-
 export class AuthRepositoryImpl extends AuthRepository {
     constructor() {
         super();

@@ -1,4 +1,6 @@
-/* Reset y Base */
+/* =========================================
+   RESET & BASE
+========================================= */
 * {
   margin: 0;
   padding: 0;
@@ -19,25 +21,33 @@ body {
   min-height: 100vh;
 }
 
-/* Variables CSS personalizadas */
+/* =========================================
+   VARIABLES GLOBALES
+========================================= */
 :root {
   --primary-color: #059669;
   --primary-hover: #047857;
   --primary-light: #d1fae5;
+
   --surface-0: #ffffff;
   --surface-50: #f9fafb;
   --surface-100: #f3f4f6;
   --surface-200: #e5e7eb;
   --surface-300: #d1d5db;
+
   --text-color: #374151;
   --text-secondary: #6b7280;
+
   --border-color: #d1d5db;
+
   --danger-color: #ef4444;
   --success-color: #10b981;
   --warning-color: #f59e0b;
 }
 
-/* Scrollbar Personalizado */
+/* =========================================
+   SCROLLBAR
+========================================= */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -60,9 +70,10 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--surface-300) var(--surface-100);
 }
-/* Agregar estos estilos al archivo src/style.css */
 
-/* ConfirmDialog Global Styles */
+/* =========================================
+   CONFIRM DIALOG GLOBAL
+========================================= */
 .p-confirm-dialog.p-dialog {
   max-width: 500px !important;
   border-radius: 16px !important;
@@ -130,6 +141,7 @@ body {
   justify-content: flex-end !important;
 }
 
+/* Botones del ConfirmDialog */
 .p-confirm-dialog .p-dialog-footer .p-button {
   padding: 0.875rem 2rem !important;
   border-radius: 10px !important;
@@ -146,14 +158,8 @@ body {
 }
 
 @keyframes pulse-warning {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.05);
-  }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
 }
 
 .p-confirm-dialog .p-button-danger {
@@ -168,7 +174,7 @@ body {
   box-shadow: 0 6px 12px -2px rgba(239, 68, 68, 0.4) !important;
 }
 
-.p-confirm-dialog .p-button-danger:enabled:active {
+.p-confirm-dialog .p-button-danger:active {
   transform: translateY(0) !important;
 }
 
@@ -179,19 +185,237 @@ body {
   border: 2px solid #e5e7eb !important;
 }
 
-.p-confirm-dialog .p-button-text:enabled:hover,
-.p-confirm-dialog .p-button-secondary:enabled:hover {
+.p-confirm-dialog .p-button-text:hover,
+.p-confirm-dialog .p-button-secondary:hover {
   background: #f9fafb !important;
   color: #374151 !important;
   border-color: #d1d5db !important;
   transform: translateY(-1px) !important;
 }
 
-.p-confirm-dialog .p-button-text:enabled:active,
-.p-confirm-dialog .p-button-secondary:enabled:active {
-  transform: translateY(0) !important;
-}
+/* =========================================
+   GENERAL MASK - UNIFICADO
+========================================= */
 .p-dialog-mask {
-  background-color: rgb(253, 253, 253) !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  z-index: 1099 !important;
   backdrop-filter: blur(2px);
+}
+
+/* =========================================
+   CLIENTE DIALOG (tu formulario grande)
+========================================= */
+.cliente-dialog.p-dialog {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+  0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  padding: 0;
+  z-index: 1100 !important;
+}
+
+/* Header */
+.cliente-dialog.p-dialog .p-dialog-header {
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1.5rem 2rem;
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cliente-dialog.p-dialog .p-dialog-title {
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: #1f2937;
+  letter-spacing: -0.025em;
+}
+
+/* Content */
+.cliente-dialog.p-dialog .p-dialog-content {
+  padding: 2rem 2.5rem !important;
+  background: white;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* Footer */
+.cliente-dialog.p-dialog .p-dialog-footer {
+  padding: 1.5rem 2.5rem;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 0 0 12px 12px;
+  gap: 1rem;
+}
+
+/* Botón X dentro del ClienteDialog */
+.cliente-dialog.p-dialog .p-dialog-header .p-dialog-header-icon {
+  color: #374151 !important;
+  font-size: 1.25rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.cliente-dialog.p-dialog .p-dialog-header .p-dialog-header-icon:hover {
+  color: #ef4444 !important;
+}
+
+.cliente-dialog.p-dialog .p-dialog-header-close-icon {
+  font-size: 1.25rem !important;
+}
+
+/* =========================================
+   INPUTS & FORM ELEMENTS
+========================================= */
+.cliente-dialog .p-inputtext,
+.cliente-dialog .p-inputnumber-input {
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.cliente-dialog .p-inputtext:hover,
+.cliente-dialog .p-inputnumber:hover .p-inputnumber-input {
+  border-color: #059669 !important;
+}
+
+.cliente-dialog .p-inputtext:focus,
+.cliente-dialog .p-inputnumber.p-inputnumber-focus .p-inputnumber-input {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 0.2rem rgba(5, 150, 105, 0.25) !important;
+}
+
+.cliente-dialog .p-inputtext.p-invalid,
+.cliente-dialog .p-inputnumber.p-invalid .p-inputnumber-input {
+  border-color: #ef4444 !important;
+}
+
+/* Dropdown */
+.cliente-dialog .p-dropdown {
+  width: 100%;
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  padding: 0.25rem;
+  background: white;
+}
+
+.cliente-dialog .p-dropdown:hover {
+  border-color: #059669 !important;
+}
+
+.cliente-dialog .p-dropdown.p-focus {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 0.2rem rgba(5, 150, 105, 0.25) !important;
+}
+
+.cliente-dialog .p-dropdown.p-invalid {
+  border-color: #ef4444 !important;
+}
+
+/* =========================================
+   BUTTONS (ClienteDialog)
+========================================= */
+
+.cliente-dialog .p-button-success {
+  background: #059669;
+  border-color: #059669;
+}
+
+.cliente-dialog .p-button-success:hover {
+  background: #047857;
+  border-color: #047857;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.cliente-dialog .p-button-secondary {
+  background: #6b7280;
+  border-color: #6b7280;
+}
+
+.cliente-dialog .p-button-secondary:hover {
+  background: #4b5563;
+  border-color: #4b5563;
+}
+
+.cliente-dialog .p-button.p-button-text:hover {
+  background: #f3f4f6;
+}
+
+/* Divider */
+.cliente-dialog .p-divider.p-divider-horizontal {
+  margin: 0.5rem 0 1.5rem 0;
+}
+
+/* =========================================
+   DROPDOWN PANEL (global)
+========================================= */
+body > .p-dropdown-panel,
+.p-dropdown-panel {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+  0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  margin-top: 8px !important;
+  min-width: 250px !important;
+  z-index: 10000 !important;
+  background: white !important;
+  overflow: visible !important;
+  position: absolute !important;
+}
+
+.p-dropdown-panel .p-dropdown-items-wrapper {
+  max-height: 300px !important;
+  overflow-y: auto !important;
+}
+
+.p-dropdown-panel .p-dropdown-items {
+  padding: 0.5rem 0 !important;
+  list-style: none !important;
+}
+
+.p-dropdown-panel .p-dropdown-item {
+  padding: 0.75rem 1rem !important;
+  font-size: 0.875rem !important;
+  transition: all 0.15s ease !important;
+  cursor: pointer !important;
+  color: #374151 !important;
+}
+
+.p-dropdown-panel .p-dropdown-item:hover {
+  background: #f3f4f6 !important;
+  color: #059669 !important;
+}
+
+.p-dropdown-panel .p-dropdown-item.p-highlight {
+  background: #059669 !important;
+  color: white !important;
+}
+
+/* =========================================
+   BOTÓN DE CERRAR - GLOBAL (funciona en todos los diálogos)
+========================================= */
+.p-dialog-header-icon {
+  font-size: 1.35rem !important;
+  color: #374151 !important;
+}
+
+.p-dialog-header-icon:hover {
+  color: #ef4444 !important;
+}
+
+.p-dialog-header-close-icon {
+  font-size: 1.35rem !important;
+}
+.dialog-header-custom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding-right: 1rem;
 }

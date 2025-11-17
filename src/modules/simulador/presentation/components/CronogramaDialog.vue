@@ -9,6 +9,10 @@ const props = defineProps({
   cronograma: {
     type: Array,
     default: () => []
+  },
+  simulacion: {
+    type: Object,
+    default: null
   }
 });
 
@@ -19,9 +23,12 @@ const cronogramaData = computed(() => {
   if (!props.cronograma || props.cronograma.length === 0) {
     return [];
   }
+  return props.cronograma;
+});
 
-  // Limitar a las primeras 12 cuotas para la vista inicial
-  return props.cronograma.slice(0, 12);
+const cronogramaVisible = computed(() => {
+  // Mostrar solo las primeras 24 cuotas en la tabla
+  return cronogramaData.value.slice(0, 24);
 });
 
 const totalData = computed(() => {
@@ -30,30 +37,34 @@ const totalData = computed(() => {
       cuotaBase: 0,
       interes: 0,
       amortizacion: 0,
+      seguros: 0,
       cuotaTotal: 0
     };
   }
 
   return props.cronograma.reduce((acc, pago) => {
-    acc.cuotaBase += pago.cuotaBase || 0;
-    acc.interes += pago.interes || 0;
-    acc.amortizacion += pago.amortizacion || 0;
-    acc.cuotaTotal += pago.cuotaTotal || 0;
+    acc.cuotaBase += Number(pago.cuotaBase || 0);
+    acc.interes += Number(pago.interes || 0);
+    acc.amortizacion += Number(pago.amortizacion || 0);
+    acc.seguros += Number(pago.seguros || 0);
+    acc.cuotaTotal += Number(pago.cuotaTotal || 0);
     return acc;
   }, {
     cuotaBase: 0,
     interes: 0,
     amortizacion: 0,
+    seguros: 0,
     cuotaTotal: 0
   });
 });
 
 // Methods
 const formatCurrency = (value) => {
+  const numero = Number(value || 0);
   return new Intl.NumberFormat('es-PE', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(value || 0);
+  }).format(numero);
 };
 
 const formatDate = (dateString) => {
@@ -78,23 +89,51 @@ const exportarExcel = () => {
 <template>
   <Dialog
       :visible="visible"
-      :style="{ width: '90%', maxWidth: '1200px' }"
+      :style="{ width: '95%', maxWidth: '1400px' }"
       header="Cronograma de Pagos"
       :modal="true"
       class="cronograma-dialog"
       @update:visible="handleClose"
   >
     <div class="cronograma-container">
+      <!-- Información del Préstamo -->
+      <div v-if="simulacion" class="prestamo-info">
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Cliente:</span>
+            <span class="info-value">{{ simulacion.clienteNombre }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Monto Financiado:</span>
+            <span class="info-value text-primary">S/ {{ formatCurrency(simulacion.montoFinanciado) }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Plazo:</span>
+            <span class="info-value">{{ simulacion.plazoPrestamo }} meses</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Tasa:</span>
+            <span class="info-value">{{ simulacion.tasaInteres }}% {{ simulacion.tipoTasa }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Cuota Mensual:</span>
+            <span class="info-value text-success font-bold">S/ {{ formatCurrency(simulacion.cuotaMensual) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <Divider />
+
       <!-- Tabla de cronograma -->
       <div class="table-wrapper">
         <DataTable
-            :value="cronogramaData"
+            :value="cronogramaVisible"
             :paginator="false"
             responsiveLayout="scroll"
             class="cronograma-table"
             stripedRows
         >
-          <Column field="numeroCuota" header="N°" style="min-width: 50px; text-align: center">
+          <Column field="numeroCuota" header="N°" style="min-width: 60px; text-align: center" :frozen="true">
             <template #body="slotProps">
               <span class="font-semibold">{{ slotProps.data.numeroCuota }}</span>
             </template>
@@ -106,46 +145,59 @@ const exportarExcel = () => {
             </template>
           </Column>
 
-          <Column field="saldoInicial" header="Saldo Inicial" style="min-width: 120px; text-align: right">
+          <Column field="saldoInicial" header="Saldo Inicial" style="min-width: 130px; text-align: right">
             <template #body="slotProps">
-              {{ formatCurrency(slotProps.data.saldoInicial) }}
+              <span class="moneda">S/</span> {{ formatCurrency(slotProps.data.saldoInicial) }}
             </template>
           </Column>
 
           <Column field="cuotaBase" header="Cuota Base" style="min-width: 120px; text-align: right">
             <template #body="slotProps">
-              {{ formatCurrency(slotProps.data.cuotaBase) }}
+              <span class="moneda">S/</span> {{ formatCurrency(slotProps.data.cuotaBase) }}
             </template>
           </Column>
 
-          <Column field="interes" header="Interés" style="min-width: 100px; text-align: right">
+          <Column field="interes" header="Interés" style="min-width: 120px; text-align: right">
             <template #body="slotProps">
-              <span class="text-warning">{{ formatCurrency(slotProps.data.interes) }}</span>
+              <span class="text-warning"><span class="moneda">S/</span> {{ formatCurrency(slotProps.data.interes) }}</span>
             </template>
           </Column>
 
-          <Column field="amortizacion" header="Amortización" style="min-width: 120px; text-align: right">
+          <Column field="amortizacion" header="Amortización" style="min-width: 130px; text-align: right">
             <template #body="slotProps">
-              <span class="text-success">{{ formatCurrency(slotProps.data.amortizacion) }}</span>
+              <span class="text-success"><span class="moneda">S/</span> {{ formatCurrency(slotProps.data.amortizacion) }}</span>
             </template>
           </Column>
 
-          <Column field="saldoFinal" header="Saldo Final" style="min-width: 120px; text-align: right">
+          <Column field="seguros" header="Seguros" style="min-width: 110px; text-align: right">
             <template #body="slotProps">
-              <span class="font-semibold">{{ formatCurrency(slotProps.data.saldoFinal) }}</span>
+              <span class="moneda">S/</span> {{ formatCurrency(slotProps.data.seguros) }}
+            </template>
+          </Column>
+
+          <Column field="cuotaTotal" header="Cuota Total" style="min-width: 130px; text-align: right">
+            <template #body="slotProps">
+              <span class="font-bold"><span class="moneda">S/</span> {{ formatCurrency(slotProps.data.cuotaTotal) }}</span>
+            </template>
+          </Column>
+
+          <Column field="saldoFinal" header="Saldo Final" style="min-width: 130px; text-align: right">
+            <template #body="slotProps">
+              <span class="font-semibold"><span class="moneda">S/</span> {{ formatCurrency(slotProps.data.saldoFinal) }}</span>
             </template>
           </Column>
         </DataTable>
       </div>
 
       <!-- Nota informativa -->
-      <div v-if="cronograma.length > 12" class="info-note">
+      <div v-if="cronograma.length > 24" class="info-note">
         <i class="pi pi-info-circle"></i>
-        <span>Se muestran las primeras 12 cuotas de {{ cronograma.length }} cuotas totales</span>
+        <span>Se muestran las primeras 24 cuotas de {{ cronograma.length }} cuotas totales. Exporte a Excel para ver el cronograma completo.</span>
       </div>
 
       <!-- Resumen total -->
       <div class="total-summary">
+        <h3 class="summary-title">Resumen Total del Préstamo</h3>
         <div class="summary-grid">
           <div class="summary-item">
             <span class="summary-label">Total Cuota Base:</span>
@@ -160,7 +212,11 @@ const exportarExcel = () => {
             <span class="summary-value text-success">S/ {{ formatCurrency(totalData.amortizacion) }}</span>
           </div>
           <div class="summary-item">
-            <span class="summary-label">Total a Pagar:</span>
+            <span class="summary-label">Total Seguros:</span>
+            <span class="summary-value">S/ {{ formatCurrency(totalData.seguros) }}</span>
+          </div>
+          <div class="summary-item highlight">
+            <span class="summary-label">TOTAL A PAGAR:</span>
             <span class="summary-value font-bold">S/ {{ formatCurrency(totalData.cuotaTotal) }}</span>
           </div>
         </div>
@@ -192,10 +248,46 @@ const exportarExcel = () => {
   padding: 0;
 }
 
-.table-wrapper {
-  max-height: 400px;
-  overflow-y: auto;
+.prestamo-info {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 1.5rem;
   margin-bottom: 1rem;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.info-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.info-value {
+  font-size: 1rem;
+  color: #374151;
+  font-weight: 600;
+}
+
+.table-wrapper {
+  max-height: 500px;
+  overflow: auto;
+  margin-bottom: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
 }
 
 .info-note {
@@ -211,12 +303,24 @@ const exportarExcel = () => {
   margin-bottom: 1rem;
 }
 
+.info-note i {
+  font-size: 1.125rem;
+}
+
 .total-summary {
   background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
   padding: 1.5rem;
   margin-top: 1rem;
+}
+
+.summary-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0 0 1rem 0;
+  text-align: center;
 }
 
 .summary-grid {
@@ -228,7 +332,23 @@ const exportarExcel = () => {
 .summary-item {
   display: flex;
   justify-content: space-between;
-  padding: 0.5rem;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 8px;
+}
+
+.summary-item.highlight {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: white;
+  grid-column: 1 / -1;
+  padding: 1rem 1.5rem;
+  box-shadow: 0 4px 6px rgba(5, 150, 105, 0.2);
+}
+
+.summary-item.highlight .summary-label,
+.summary-item.highlight .summary-value {
+  color: white;
+  font-size: 1.125rem;
 }
 
 .summary-label {
@@ -241,11 +361,21 @@ const exportarExcel = () => {
   color: #374151;
 }
 
+.moneda {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-right: 0.25rem;
+}
+
 .text-warning {
   color: #f59e0b;
 }
 
 .text-success {
+  color: #059669;
+}
+
+.text-primary {
   color: #059669;
 }
 
@@ -268,6 +398,10 @@ const exportarExcel = () => {
   .summary-grid {
     grid-template-columns: 1fr;
   }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
 
@@ -281,13 +415,13 @@ const exportarExcel = () => {
 .cronograma-dialog.p-dialog .p-dialog-header {
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
   color: white;
-  padding: 1.5rem;
+  padding: 1.5rem 2rem;
   border-radius: 12px 12px 0 0;
 }
 
 .cronograma-dialog.p-dialog .p-dialog-title {
   font-weight: 700;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   color: white;
 }
 
@@ -295,36 +429,58 @@ const exportarExcel = () => {
   color: white;
 }
 
+.cronograma-dialog.p-dialog .p-dialog-header-icon:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .cronograma-dialog.p-dialog .p-dialog-content {
-  padding: 1.5rem;
+  padding: 1.5rem 2rem;
   background: white;
 }
 
 .cronograma-dialog.p-dialog .p-dialog-footer {
-  padding: 1.5rem;
+  padding: 1.5rem 2rem;
   background: #f9fafb;
   border-top: 1px solid #e5e7eb;
   border-radius: 0 0 12px 12px;
 }
 
 /* Tabla personalizada */
+.cronograma-table.p-datatable {
+  font-size: 0.875rem;
+}
+
 .cronograma-table.p-datatable .p-datatable-thead > tr > th {
   background: #f3f4f6;
   color: #374151;
   font-weight: 700;
   border-bottom: 2px solid #e5e7eb;
-  padding: 0.75rem;
-  font-size: 0.875rem;
+  padding: 0.75rem 0.5rem;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
 }
 
 .cronograma-table.p-datatable .p-datatable-tbody > tr > td {
-  padding: 0.75rem;
+  padding: 0.75rem 0.5rem;
   font-size: 0.875rem;
   border-bottom: 1px solid #f3f4f6;
+  white-space: nowrap;
 }
 
 .cronograma-table.p-datatable .p-datatable-tbody > tr:hover {
   background: #f9fafb;
+}
+
+.cronograma-table.p-datatable .p-datatable-tbody > tr:last-child > td {
+  border-bottom: none;
+}
+
+/* Columna congelada */
+.cronograma-table.p-datatable .p-frozen-column {
+  background: white;
+  font-weight: 600;
 }
 
 /* Botones */
@@ -332,6 +488,7 @@ const exportarExcel = () => {
   padding: 0.75rem 1.5rem;
   font-weight: 600;
   border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
 .cronograma-dialog .p-button-success {
@@ -339,9 +496,11 @@ const exportarExcel = () => {
   border-color: #059669;
 }
 
-.cronograma-dialog .p-button-success:hover {
+.cronograma-dialog .p-button-success:hover:not(:disabled) {
   background: #047857;
   border-color: #047857;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .cronograma-dialog .p-button-secondary {
@@ -352,5 +511,9 @@ const exportarExcel = () => {
 .cronograma-dialog .p-button-secondary:hover {
   background: #4b5563;
   border-color: #4b5563;
+}
+
+.cronograma-dialog .p-divider {
+  margin: 1rem 0;
 }
 </style>

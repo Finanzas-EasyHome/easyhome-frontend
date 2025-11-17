@@ -12,16 +12,20 @@ export class Cliente {
         this.ingresoFamiliar = data.ingresoFamiliar || 0;
         this.aporte = data.aporte || 0;
         this.estadoCivil = data.estadoCivil || '';
+        this.tieneDiscapacidad = data.tieneDiscapacidad || false;
+        this.esMigranteRetornado = data.esMigranteRetornado || false;
+        this.esPersonaDesplazada = data.esPersonaDesplazada || false;
 
         // Datos de la vivienda
         this.vivienda = data.vivienda || {
             proyecto: '',
             tipoVivienda: '',
             valorVivienda: 0,
-            modalidadVivienda: '',
+            esViviendaSostenible: false,
             cuotaInicial: 0,
             cuotaInicialPorcentaje: 0,
-            tipoVIS: '',
+            bonoBienPagador: '',
+            tipoBBP: '',
             ubicacion: ''
         };
 
@@ -102,16 +106,12 @@ export class Cliente {
             errors.push('El valor de la vivienda debe ser mayor a 0');
         }
 
-        if (!this.vivienda.modalidadVivienda || this.vivienda.modalidadVivienda.trim().length === 0) {
-            errors.push('La modalidad de vivienda es requerida');
-        }
-
         if (this.vivienda.cuotaInicial === null || this.vivienda.cuotaInicial === undefined || this.vivienda.cuotaInicial < 0) {
             errors.push('La cuota inicial debe ser mayor o igual a 0');
         }
 
-        if (!this.vivienda.tipoVIS || this.vivienda.tipoVIS.trim().length === 0) {
-            errors.push('El tipo de VIS es requerido');
+        if (!this.vivienda.tipoBBP || this.vivienda.tipoBBP.trim().length === 0) {
+            errors.push('El tipo de BBP es requerido');
         }
 
         if (!this.vivienda.ubicacion || this.vivienda.ubicacion.trim().length === 0) {
@@ -137,6 +137,9 @@ export class Cliente {
             ingresoFamiliar: this.ingresoFamiliar,
             aporte: this.aporte,
             estadoCivil: this.estadoCivil,
+            tieneDiscapacidad: this.tieneDiscapacidad,
+            esMigranteRetornado: this.esMigranteRetornado,
+            esPersonaDesplazada: this.esPersonaDesplazada,
             vivienda: { ...this.vivienda },
             createdAt: this.createdAt,
             updatedAt: this.updatedAt
@@ -155,6 +158,9 @@ export class Cliente {
             ingresoFamiliar: this.ingresoFamiliar,
             aporte: this.aporte,
             estadoCivil: this.estadoCivil,
+            tieneDiscapacidad: this.tieneDiscapacidad,
+            esMigranteRetornado: this.esMigranteRetornado,
+            esPersonaDesplazada: this.esPersonaDesplazada,
             vivienda: { ...this.vivienda }
         };
     }
@@ -165,12 +171,15 @@ export class Cliente {
      */
     toUpdateDTO() {
         return {
-            nombresApellidos: this.nombresApellidos,
+            nomblesApellidos: this.nombresApellidos,
             dni: this.dni,
             edad: this.edad,
             ingresoFamiliar: this.ingresoFamiliar,
             aporte: this.aporte,
             estadoCivil: this.estadoCivil,
+            tieneDiscapacidad: this.tieneDiscapacidad,
+            esMigranteRetornado: this.esMigranteRetornado,
+            esPersonaDesplazada: this.esPersonaDesplazada,
             vivienda: { ...this.vivienda }
         };
     }

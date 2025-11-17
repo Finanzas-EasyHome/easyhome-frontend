@@ -53,10 +53,12 @@ const cronogramaDialogVisible = ref(false);
 
 // Computed
 const clientesOptions = computed(() =>
-    allClientes.value.map(cliente => ({
-      label: cliente.nombresApellidos,
-      value: cliente.nombresApellidos
-    }))
+    allClientes.value.map(cliente => (
+        {
+          label: cliente.nombresApellidos,
+          value: cliente.nombresApellidos
+        }
+    ))
 );
 
 const montoFinanciadoCalculado = computed(() => {
@@ -209,7 +211,6 @@ const handleExportCronograma = () => {
 
 const verCronograma = () => {
   if (simulacionActual.value?.cronogramaPagos?.length > 0) {
-    handleExportCronograma();
     cronogramaDialogVisible.value = true;
   } else {
     toast.add({
@@ -219,16 +220,6 @@ const verCronograma = () => {
       life: 3000
     });
   }
-};
-
-const verHistorial = () => {
-  // Navegar a la vista de historial
-  toast.add({
-    severity: 'info',
-    summary: 'Historial',
-    detail: 'Navegando al historial de simulaciones',
-    life: 2000
-  });
 };
 
 // Lifecycle
@@ -248,35 +239,25 @@ onMounted(async () => {
 
     <!-- Content Card -->
     <div class="content-card">
-      <!-- Formulario -->
+      <!-- Formulario en Grid 2 Columnas -->
       <div class="form-section">
         <div class="grid">
+          <!-- COLUMNA IZQUIERDA -->
+
           <!-- Cliente -->
           <div class="col-12 md:col-6">
             <div class="field">
               <label for="cliente">Cliente</label>
               <Dropdown
+                  id="cliente"
                   v-model="formData.clienteNombre"
                   :options="clientesOptions"
                   optionLabel="label"
                   optionValue="value"
-                  placeholder="Seleccionar cliente"
+                  placeholder="Seleccionar"
                   class="w-full"
                   :disabled="loading"
-              />
-            </div>
-          </div>
-
-          <!-- Fecha de Inicio de Pago -->
-          <div class="col-12 md:col-6">
-            <div class="field">
-              <label for="fechaInicio">Fecha de Inicio de Pago</label>
-              <Calendar
-                  v-model="formData.fechaInicioPago"
-                  dateFormat="dd/mm/yy"
-                  placeholder="dd/mm/aaaa"
-                  class="w-full"
-                  :disabled="loading"
+                  appendTo="body"
               />
             </div>
           </div>
@@ -284,26 +265,11 @@ onMounted(async () => {
           <!-- Programa Objetivo -->
           <div class="col-12 md:col-6">
             <div class="field">
-              <label for="programa">Programa Objetivo</label>
+              <label for="programa">Programa objetivo</label>
               <InputText
+                  id="programa"
                   v-model="formData.programaObjetivo"
                   placeholder="Techo Propio"
-                  class="w-full"
-                  :disabled="loading"
-              />
-            </div>
-          </div>
-
-          <!-- Entidad Financiera -->
-          <div class="col-12 md:col-6">
-            <div class="field">
-              <label for="entidad">Entidad Financiera</label>
-              <Dropdown
-                  v-model="formData.entidadFinanciera"
-                  :options="entidadesFinancieras"
-                  optionLabel="label"
-                  optionValue="value"
-                  placeholder="Seleccionar"
                   class="w-full"
                   :disabled="loading"
               />
@@ -313,8 +279,9 @@ onMounted(async () => {
           <!-- Cuota Inicial -->
           <div class="col-12 md:col-6">
             <div class="field">
-              <label for="cuotaInicial">Cuota Inicial (S/.)</label>
+              <label for="cuotaInicial">Cuota inicial (S/.)</label>
               <InputNumber
+                  id="cuotaInicial"
                   v-model="formData.cuotaInicial"
                   mode="currency"
                   currency="PEN"
@@ -327,21 +294,111 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Tipo de Tasa -->
+          <!-- Valor Vivienda -->
+          <div class="col-12 md:col-6">
+            <div class="field">
+              <label for="valorVivienda">Valor de vivienda (S/.)</label>
+              <InputNumber
+                  id="valorVivienda"
+                  v-model="formData.valorVivienda"
+                  mode="currency"
+                  currency="PEN"
+                  locale="es-PE"
+                  :minFractionDigits="2"
+                  class="w-full"
+                  :disabled="loading"
+                  @input="updateMontoFinanciado"
+              />
+            </div>
+          </div>
+
+          <!-- Monto del Bono -->
+          <div class="col-12 md:col-6">
+            <div class="field">
+              <label for="montoBono">Monto del Bono (S/.)</label>
+              <InputNumber
+                  id="montoBono"
+                  v-model="formData.montoBono"
+                  mode="currency"
+                  currency="PEN"
+                  locale="es-PE"
+                  :minFractionDigits="2"
+                  class="w-full"
+                  :disabled="loading"
+                  @input="updateMontoFinanciado"
+              />
+            </div>
+          </div>
+
+          <!-- Monto Financiado (SIEMPRE EN VERDE) -->
+          <div class="col-12 md:col-6">
+            <div class="field">
+              <label for="montoFinanciado">Monto Financiado (S/.)</label>
+              <InputNumber
+                  id="montoFinanciado"
+                  :value="montoFinanciadoCalculado"
+                  mode="currency"
+                  currency="PEN"
+                  locale="es-PE"
+                  :minFractionDigits="2"
+                  class="w-full monto-financiado-input"
+                  disabled
+              />
+            </div>
+          </div>
+
+          <!-- COLUMNA DERECHA -->
+
+          <!-- Fecha de Inicio de Pago -->
+          <div class="col-12 md:col-6">
+            <div class="field">
+              <label for="fechaInicio">Fecha de Inicio de Pago</label>
+              <Calendar
+                  id="fechaInicio"
+                  v-model="formData.fechaInicioPago"
+                  dateFormat="dd/mm/yy"
+                  placeholder="dd/mm/aaaa"
+                  class="w-full"
+                  :disabled="loading"
+              />
+            </div>
+          </div>
+
+          <!-- Entidad Financiera -->
+          <div class="col-12 md:col-6">
+            <div class="field">
+              <label for="entidad">Entidad Financiera</label>
+              <Dropdown
+                  id="entidad"
+                  v-model="formData.entidadFinanciera"
+                  :options="entidadesFinancieras"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Seleccionar"
+                  class="w-full"
+                  :disabled="loading"
+                  appendTo="body"
+              />
+            </div>
+          </div>
+
+          <!-- Tipo de Tasa y Valor -->
           <div class="col-12 md:col-6">
             <div class="field">
               <label for="tipoTasa">Tipo de Tasa</label>
-              <div class="flex gap-3">
+              <div class="flex gap-2">
                 <Dropdown
+                    id="tipoTasa"
                     v-model="formData.tipoTasa"
                     :options="[
-                    { label: 'TEA', value: 'TEA' },
-                    { label: 'TEM', value: 'TEM' }
-                  ]"
+                      { label: 'TEA', value: 'TEA' },
+                      { label: 'TEM', value: 'TEM' }
+                    ]"
                     optionLabel="label"
                     optionValue="value"
                     class="flex-1"
                     :disabled="loading"
+                    appendTo="body"
                 />
                 <InputNumber
                     v-model="formData.tasaInteres"
@@ -355,36 +412,20 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Valor de la Vivienda -->
-          <div class="col-12 md:col-6">
-            <div class="field">
-              <label for="valorVivienda">Valor de la vivienda (S/.)</label>
-              <InputNumber
-                  v-model="formData.valorVivienda"
-                  mode="currency"
-                  currency="PEN"
-                  locale="es-PE"
-                  :minFractionDigits="2"
-                  class="w-full"
-                  :disabled="loading"
-                  @input="updateMontoFinanciado"
-              />
-            </div>
-          </div>
-
           <!-- Costos Adicionales -->
           <div class="col-12 md:col-6">
             <div class="field">
               <label for="costos">Costos adicionales</label>
               <div class="flex gap-2">
                 <InputText
+                    id="costos"
                     :value="formData.costosAdicionales"
                     class="flex-1"
                     disabled
                 />
                 <Button
                     icon="pi pi-plus"
-                    class="p-button-success"
+                    class="p-button-success btn-plus"
                     @click="openCostosDialog"
                     :disabled="loading"
                 />
@@ -392,45 +433,30 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Monto del Bono -->
+          <!-- Plazo del Préstamo -->
           <div class="col-12 md:col-6">
             <div class="field">
-              <label for="montoBono">Monto del Bono (S/.)</label>
-              <InputNumber
-                  v-model="formData.montoBono"
-                  mode="currency"
-                  currency="PEN"
-                  locale="es-PE"
-                  :minFractionDigits="2"
-                  class="w-full"
-                  :disabled="loading"
-                  @input="updateMontoFinanciado"
-              />
-            </div>
-          </div>
-
-          <!-- Plazo del préstamo -->
-          <div class="col-12 md:col-3">
-            <div class="field">
-              <label for="plazo">Plazo del préstamo</label>
+              <label for="plazo">Plazo del prestamo</label>
               <div class="flex gap-2">
                 <Dropdown
+                    id="plazo"
                     v-model="formData.plazoPrestamo"
                     :options="[
-                    { label: '5 años', value: 60 },
-                    { label: '10 años', value: 120 },
-                    { label: '15 años', value: 180 },
-                    { label: '20 años', value: 240 },
-                    { label: '25 años', value: 300 }
-                  ]"
+                      { label: '5 años', value: 60 },
+                      { label: '10 años', value: 120 },
+                      { label: '15 años', value: 180 },
+                      { label: '20 años', value: 240 },
+                      { label: '25 años', value: 300 }
+                    ]"
                     optionLabel="label"
                     optionValue="value"
                     class="flex-1"
                     :disabled="loading"
+                    appendTo="body"
                 />
                 <InputNumber
                     :value="formData.plazoPrestamo"
-                    suffix=" meses"
+                    suffix=" m"
                     class="flex-1"
                     disabled
                 />
@@ -438,47 +464,33 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Periodo de gracia -->
-          <div class="col-12 md:col-3">
+          <!-- Periodo de Gracia -->
+          <div class="col-12 md:col-6">
             <div class="field">
               <label for="gracia">Periodo de gracia</label>
               <div class="flex gap-2">
                 <Dropdown
+                    id="gracia"
                     v-model="formData.periodoGracia"
                     :options="[
-                    { label: 'Sin gracia', value: 0 },
-                    { label: '3 meses', value: 3 },
-                    { label: '6 meses', value: 6 },
-                    { label: '12 meses', value: 12 }
-                  ]"
+                      { label: 'Sin gracia', value: 0 },
+                      { label: '3 meses', value: 3 },
+                      { label: '6 meses', value: 6 },
+                      { label: '12 meses', value: 12 }
+                    ]"
                     optionLabel="label"
                     optionValue="value"
                     class="flex-1"
                     :disabled="loading"
+                    appendTo="body"
                 />
                 <InputNumber
                     :value="formData.periodoGracia"
-                    suffix=" meses"
+                    suffix=" m"
                     class="flex-1"
                     disabled
                 />
               </div>
-            </div>
-          </div>
-
-          <!-- Monto Financiado -->
-          <div class="col-12 md:col-6">
-            <div class="field">
-              <label for="montoFinanciado">Monto Financiado (S/.)</label>
-              <InputNumber
-                  :value="montoFinanciadoCalculado"
-                  mode="currency"
-                  currency="PEN"
-                  locale="es-PE"
-                  :minFractionDigits="2"
-                  class="w-full monto-financiado-input"
-                  disabled
-              />
             </div>
           </div>
         </div>
@@ -518,7 +530,7 @@ onMounted(async () => {
 
       <!-- Resumen del cálculo -->
       <div v-if="simulacionActual" class="resumen-section">
-        <h3 class="resumen-title">Resumen del cálculo</h3>
+        <h3 class="resumen-title">Resumen del calculo</h3>
 
         <div class="resumen-grid">
           <div class="resumen-item">
@@ -547,19 +559,13 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Botones adicionales -->
-        <div class="resumen-buttons">
+        <!-- Botón Ver Cronograma -->
+        <div class="resumen-button-container">
           <Button
               label="Ver Cronograma"
               icon="pi pi-calendar"
               class="p-button-info"
               @click="verCronograma"
-          />
-          <Button
-              label="Ver Historial"
-              icon="pi pi-history"
-              class="p-button-secondary"
-              @click="verHistorial"
           />
         </div>
       </div>
@@ -610,6 +616,7 @@ onMounted(async () => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 2rem;
   margin: 0 1.5rem;
+  border: 3px solid #059669;
 }
 
 .form-section {
@@ -628,13 +635,19 @@ onMounted(async () => {
   font-size: 0.875rem;
 }
 
+.btn-plus {
+  padding: 0.75rem !important;
+  width: auto !important;
+}
+
 .action-buttons {
   display: flex;
   gap: 1rem;
   justify-content: center;
   padding: 2rem 0;
-  border-top: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
+  border-top: 2px solid #059669;
+  border-bottom: 2px solid #059669;
+  flex-wrap: wrap;
 }
 
 .resumen-section {
@@ -655,22 +668,25 @@ onMounted(async () => {
 
 .resumen-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
   margin-bottom: 2rem;
 }
 
 .resumen-item {
   display: flex;
-  justify-content: space-between;
-  padding: 1rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.25rem;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
+  border-left: 4px solid #f59e0b;
 }
 
 .resumen-label {
   font-weight: 600;
   color: #d1fae5;
+  font-size: 0.875rem;
 }
 
 .resumen-value {
@@ -679,9 +695,8 @@ onMounted(async () => {
   color: white;
 }
 
-.resumen-buttons {
+.resumen-button-container {
   display: flex;
-  gap: 1rem;
   justify-content: center;
   padding-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.2);
@@ -701,7 +716,7 @@ onMounted(async () => {
   }
 
   .action-buttons {
-    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
   .resumen-grid {
@@ -709,9 +724,32 @@ onMounted(async () => {
     gap: 1rem;
   }
 
-  .resumen-buttons {
-    flex-direction: column;
+  :deep(.p-button) {
+    font-size: 0.875rem;
+    padding: 0.625rem 1rem !important;
   }
+}
+
+/* Estilos para los inputs y dropdowns */
+:deep(.p-inputtext),
+:deep(.p-inputnumber-input),
+:deep(.p-dropdown) {
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px !important;
+  font-size: 0.875rem !important;
+}
+
+:deep(.p-inputtext:hover),
+:deep(.p-inputnumber:hover .p-inputnumber-input),
+:deep(.p-dropdown:hover) {
+  border-color: #059669 !important;
+}
+
+:deep(.p-inputtext:focus),
+:deep(.p-inputnumber.p-inputnumber-focus .p-inputnumber-input),
+:deep(.p-dropdown.p-focus) {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 0.2rem rgba(5, 150, 105, 0.25) !important;
 }
 
 /* Estilos para los botones */
@@ -719,6 +757,7 @@ onMounted(async () => {
   min-width: 120px;
   padding: 0.75rem 1.5rem;
   font-weight: 600;
+  border-radius: 8px;
 }
 
 :deep(.p-button-primary) {

@@ -140,13 +140,17 @@ onMounted(() => {
       <div class="flex flex-column md:flex-row justify-content-between align-items-center gap-3 mb-4">
         <div class="search-wrapper">
           <span class="p-input-icon-left w-full">
-            <i class="pi pi-search" />
+            <InputGroup>
+              <InputGroupAddon>
+                <i class="pi pi-search" />
+                </InputGroupAddon>
             <InputText
                 v-model="searchQuery"
                 placeholder="Buscar por nombre, DNI o estado civil..."
                 class="w-full search-input-custom"
                 @input="handleSearch"
             />
+              </InputGroup>
           </span>
         </div>
 
@@ -322,7 +326,6 @@ onMounted(() => {
 .search-input-custom {
   border-radius: 8px;
   border: 1px solid #d1d5db;
-  padding: 0.625rem 1rem 0.625rem 2.5rem;
 }
 
 .btn-nuevo {

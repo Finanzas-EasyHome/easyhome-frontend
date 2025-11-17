@@ -34,7 +34,7 @@ import 'primeflex/primeflex.css';
 
 // Custom Styles
 import '/src/style.css';
-import {InputGroup, InputGroupAddon} from "primevue";
+import {Checkbox, InputGroup, InputGroupAddon} from "primevue";
 
 baseUrl: import.meta.env.VITE_API_BASE_URL;
 // Axios Configuration
@@ -157,6 +157,7 @@ app.component('ProgressSpinner', ProgressSpinner);
 app.component('Card', Card);
 app.component('Divider', Divider);
 app.component('Toolbar', Toolbar);
+app.component('Checkbox', Checkbox);
 app.directive('tooltip', Tooltip);
 
 // Mount App

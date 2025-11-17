@@ -35,6 +35,14 @@ const formatDate = (dateString) => {
   }).format(date);
 };
 
+const formatBoolean = (value) => {
+  return value ? '✓ Sí' : '✗ No';
+};
+
+const statusBadge = (value) => {
+  return value ? 'badge-success' : 'badge-danger';
+};
+
 const handleClose = () => {
   emit('update:visible', false);
 };
@@ -43,7 +51,7 @@ const handleClose = () => {
 <template>
   <Dialog
       :visible="visible"
-      :style="{ width: '900px', maxHeight: '90vh' }"
+      :style="{ width: '950px', maxHeight: '90vh' }"
       header="Detalles del Cliente"
       :modal="true"
       :appendTo="'body'"
@@ -112,6 +120,38 @@ const handleClose = () => {
               </span>
             </div>
           </div>
+
+          <!-- Nuevos campos: Información Adicional -->
+          <div class="col-12">
+            <div class="divider-light"></div>
+          </div>
+
+          <div class="col-12 md:col-4">
+            <div class="detail-item">
+              <span class="detail-label">¿Tiene Discapacidad?</span>
+              <span :class="['detail-badge', statusBadge(cliente.tieneDiscapacidad)]">
+                {{ formatBoolean(cliente.tieneDiscapacidad) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="col-12 md:col-4">
+            <div class="detail-item">
+              <span class="detail-label">¿Migrante Retornado?</span>
+              <span :class="['detail-badge', statusBadge(cliente.esMigranteRetornado)]">
+                {{ formatBoolean(cliente.esMigranteRetornado) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="col-12 md:col-4">
+            <div class="detail-item">
+              <span class="detail-label">¿Persona Desplazada?</span>
+              <span :class="['detail-badge', statusBadge(cliente.esPersonaDesplazada)]">
+                {{ formatBoolean(cliente.esPersonaDesplazada) }}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -125,17 +165,11 @@ const handleClose = () => {
         </div>
 
         <div v-if="cliente.vivienda" class="grid">
+          <!-- Información Básica -->
           <div class="col-12 md:col-6">
             <div class="detail-item">
               <span class="detail-label">Proyecto:</span>
               <span class="detail-value">{{ cliente.vivienda.proyecto || 'N/A' }}</span>
-            </div>
-          </div>
-
-          <div class="col-12 md:col-6">
-            <div class="detail-item">
-              <span class="detail-label">Nombre de la Vivienda:</span>
-              <span class="detail-value">{{ cliente.vivienda.nombreVivienda || 'N/A' }}</span>
             </div>
           </div>
 
@@ -146,19 +180,79 @@ const handleClose = () => {
             </div>
           </div>
 
+          <!-- Valor y Sostenibilidad -->
           <div class="col-12 md:col-6">
+            <div class="detail-item">
+              <span class="detail-label">Valor de la Vivienda:</span>
+              <span class="detail-value text-primary font-bold text-lg">
+                {{ formatCurrency(cliente.vivienda.valorVivienda || 0) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="col-12 md:col-6">
+            <div class="detail-item">
+              <span class="detail-label">¿Vivienda Sostenible?</span>
+              <span :class="['detail-badge', statusBadge(cliente.vivienda.esViviendaSostenible)]">
+                {{ formatBoolean(cliente.vivienda.esViviendaSostenible) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Cuota Inicial -->
+          <div class="col-12 md:col-6">
+            <div class="detail-item">
+              <span class="detail-label">Cuota Inicial (Monto):</span>
+              <span class="detail-value text-success font-bold">
+                {{ formatCurrency(cliente.vivienda.cuotaInicial || 0) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="col-12 md:col-6">
+            <div class="detail-item">
+              <span class="detail-label">Cuota Inicial (Porcentaje):</span>
+              <span class="detail-value">
+                {{ cliente.vivienda.cuotaInicialPorcentaje || 0 }}%
+              </span>
+            </div>
+          </div>
+
+          <!-- BBP y Ubicación -->
+          <div class="col-12 md:col-6">
+            <div class="detail-item">
+              <span class="detail-label">¿Bono del Buen Pagador?</span>
+              <span class="detail-value">{{ cliente.vivienda.bonoBienPagador || 'N/A' }}</span>
+            </div>
+          </div>
+
+          <div class="col-12 md:col-6">
+            <div class="detail-item">
+              <span class="detail-label">Tipo de BBP:</span>
+              <span class="detail-value">{{ cliente.vivienda.tipoBBP || 'N/A' }}</span>
+            </div>
+          </div>
+
+          <div class="col-12">
             <div class="detail-item">
               <span class="detail-label">Ubicación:</span>
               <span class="detail-value">{{ cliente.vivienda.ubicacion || 'N/A' }}</span>
             </div>
           </div>
 
+          <!-- Resumen Financiero -->
           <div class="col-12">
-            <div class="detail-item">
-              <span class="detail-label">Precio:</span>
-              <span class="detail-value text-primary font-bold text-xl">
-                {{ formatCurrency(cliente.vivienda.precio || 0) }}
-              </span>
+            <div class="financial-summary">
+              <div class="summary-item">
+                <span class="summary-label">Monto a Financiar:</span>
+                <span class="summary-value">
+                  {{
+                    formatCurrency(
+                        (cliente.vivienda.valorVivienda || 0) - (cliente.vivienda.cuotaInicial || 0)
+                    )
+                  }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -257,6 +351,25 @@ const handleClose = () => {
   font-weight: 500;
 }
 
+.detail-badge {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.badge-success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge-danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .estado-civil-badge {
   display: inline-block;
   padding: 0.375rem 0.875rem;
@@ -265,6 +378,40 @@ const handleClose = () => {
   color: #065f46;
   font-size: 0.875rem;
   font-weight: 600;
+  width: fit-content;
+}
+
+.divider-light {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 1.5rem 0;
+}
+
+.financial-summary {
+  background: #f0fdf4;
+  border: 2px solid #d1fae5;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.summary-label {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #047857;
+}
+
+.summary-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #059669;
 }
 
 .text-success {
@@ -277,6 +424,10 @@ const handleClose = () => {
 
 .text-secondary {
   color: #6b7280;
+}
+
+.text-lg {
+  font-size: 1.125rem;
 }
 
 .font-bold {
