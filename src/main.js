@@ -34,7 +34,7 @@ import 'primeflex/primeflex.css';
 
 // Custom Styles
 import '/src/style.css';
-import {Checkbox, InputGroup, InputGroupAddon} from "primevue";
+import {Checkbox, InputGroup, InputGroupAddon, RadioButton} from "primevue";
 
 baseUrl: import.meta.env.VITE_API_BASE_URL;
 // Axios Configuration
@@ -158,6 +158,7 @@ app.component('Card', Card);
 app.component('Divider', Divider);
 app.component('Toolbar', Toolbar);
 app.component('Checkbox', Checkbox);
+app.component('RadioButton', RadioButton);
 app.directive('tooltip', Tooltip);
 
 // Mount App
