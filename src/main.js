@@ -162,3 +162,5 @@ app.directive('tooltip', Tooltip);
 
 // Mount App
 app.mount('#app');
+
+//COMMIT DE RAMA SUPABASE
