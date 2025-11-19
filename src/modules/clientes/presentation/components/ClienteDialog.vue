@@ -361,41 +361,74 @@ function handleClose() {
         </div>
 
         <div class="col-12 md:col-3">
-          <label for="discapacidad" class="form-label">¿Tiene discapacidad?</label>
-          <div class="checkbox-wrapper">
-            <Checkbox
-                id="discapacidad"
-                v-model="form.tieneDiscapacidad"
-                :binary="true"
-                class="checkbox-custom"
-            />
-            <label for="discapacidad" class="checkbox-label">No</label>
+          <label class="form-label">¿Tiene discapacidad?</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <RadioButton
+                  id="discapacidad_si"
+                  v-model="form.tieneDiscapacidad"
+                  :value="true"
+                  class="radio-custom"
+              />
+              <label for="discapacidad_si" class="radio-label">Sí</label>
+            </div>
+            <div class="radio-option">
+              <RadioButton
+                  id="discapacidad_no"
+                  v-model="form.tieneDiscapacidad"
+                  :value="false"
+                  class="radio-custom"
+              />
+              <label for="discapacidad_no" class="radio-label">No</label>
+            </div>
           </div>
         </div>
 
         <div class="col-12 md:col-3">
-          <label for="migrante" class="form-label">¿Migrante retornado?</label>
-          <div class="checkbox-wrapper">
-            <Checkbox
-                id="migrante"
-                v-model="form.esMigranteRetornado"
-                :binary="true"
-                class="checkbox-custom"
-            />
-            <label for="migrante" class="checkbox-label">No</label>
+          <label class="form-label">¿Migrante retornado?</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <RadioButton
+                  id="migrante_si"
+                  v-model="form.esMigranteRetornado"
+                  :value="true"
+                  class="radio-custom"
+              />
+              <label for="migrante_si" class="radio-label">Sí</label>
+            </div>
+            <div class="radio-option">
+              <RadioButton
+                  id="migrante_no"
+                  v-model="form.esMigranteRetornado"
+                  :value="false"
+                  class="radio-custom"
+              />
+              <label for="migrante_no" class="radio-label">No</label>
+            </div>
           </div>
         </div>
 
         <div class="col-12 md:col-3">
-          <label for="desplazada" class="form-label">¿Persona desplazada?</label>
-          <div class="checkbox-wrapper">
-            <Checkbox
-                id="desplazada"
-                v-model="form.esPersonaDesplazada"
-                :binary="true"
-                class="checkbox-custom"
-            />
-            <label for="desplazada" class="checkbox-label">No</label>
+          <label class="form-label">¿Persona desplazada?</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <RadioButton
+                  id="desplazada_si"
+                  v-model="form.esPersonaDesplazada"
+                  :value="true"
+                  class="radio-custom"
+              />
+              <label for="desplazada_si" class="radio-label">Sí</label>
+            </div>
+            <div class="radio-option">
+              <RadioButton
+                  id="desplazada_no"
+                  v-model="form.esPersonaDesplazada"
+                  :value="false"
+                  class="radio-custom"
+              />
+              <label for="desplazada_no" class="radio-label">No</label>
+            </div>
           </div>
         </div>
 
@@ -619,11 +652,11 @@ function handleClose() {
   flex: 1;
 }
 
-/* Estilos para Checkboxes */
-.checkbox-wrapper {
+/* Estilos para RadioButtons */
+.radio-group {
   display: flex;
+  gap: 0.5rem;
   align-items: center;
-  gap: 0.75rem;
   padding: 0.75rem;
   border: 1px solid #d1d5db;
   border-radius: 6px;
@@ -631,16 +664,23 @@ function handleClose() {
   height: 44px;
 }
 
-.checkbox-custom {
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.radio-custom {
   cursor: pointer;
   accent-color: #059669;
   flex-shrink: 0;
 }
 
-.checkbox-label {
+.radio-label {
   margin: 0;
   cursor: pointer;
-  color: #9ca3af;
+  color: #6b7280;
   font-weight: 500;
   user-select: none;
   font-size: 0.9375rem;
