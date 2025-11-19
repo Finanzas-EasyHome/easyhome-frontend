@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import { useSimulador } from '../composables/useSimulador.js';
 import { useClientes } from '../../../clientes/presentation/composables/useClientes.js';
@@ -26,9 +26,11 @@ const { allClientes, fetchClientes } = useClientes();
 
 // State del formulario
 const formData = ref({
+  clienteId: null,
   clienteNombre: '',
   programaObjetivo: '',
   cuotaInicial: 0,
+  cuotaInicialPorcentaje: 0,
   valorVivienda: 0,
   montoBono: 0,
   montoFinanciado: 0,
@@ -39,7 +41,7 @@ const formData = ref({
   costosAdicionales: '+',
   plazoPrestamo: 240,
   periodoGracia: 0,
-  // Costos adicionales
+  tipoPeriodoGracia: 'ninguno',
   seguroDesgravamen: 0,
   tasacion: 0,
   seguroInmueble: 0,
@@ -51,15 +53,53 @@ const formData = ref({
 const costosDialogVisible = ref(false);
 const cronogramaDialogVisible = ref(false);
 
+// Datos de la entidad financiera seleccionada
+const entidadSeleccionada = ref(null);
+const teaError = ref('');
+
 // Computed
 const clientesOptions = computed(() =>
-    allClientes.value.map(cliente => (
-        {
-          label: cliente.nombresApellidos,
-          value: cliente.nombresApellidos
-        }
-    ))
+    allClientes.value.map(cliente => ({
+      label: cliente.nombresApellidos,
+      value: cliente.id,
+      data: cliente
+    }))
 );
+
+const plazosOptions = computed(() => {
+  const plazos = [];
+  for (let años = 5; años <= 25; años++) {
+    plazos.push({
+      label: `${años} años`,
+      value: años * 12
+    });
+  }
+  return plazos;
+});
+
+const tiposPeriodoGracia = [
+  { label: 'Ninguno', value: 'ninguno' },
+  { label: 'Parcial', value: 'parcial' },
+  { label: 'Total', value: 'total' }
+];
+
+const periodosGraciaOptions = computed(() => {
+  if (formData.value.tipoPeriodoGracia === 'ninguno') {
+    return [{ label: '0 meses', value: 0 }];
+  }
+
+  const opciones = [];
+  const maxMeses = Math.min(12, Math.floor(formData.value.plazoPrestamo / 2));
+
+  for (let meses = 1; meses <= maxMeses; meses++) {
+    opciones.push({
+      label: `${meses} ${meses === 1 ? 'mes' : 'meses'}`,
+      value: meses
+    });
+  }
+
+  return opciones;
+});
 
 const montoFinanciadoCalculado = computed(() => {
   const valor = parseFloat(formData.value.valorVivienda) || 0;
@@ -68,15 +108,159 @@ const montoFinanciadoCalculado = computed(() => {
   return Math.max(0, valor - inicial - bono);
 });
 
-// Watchers para actualizar monto financiado
+// Watchers
+watch(() => formData.value.clienteId, async (newClienteId) => {
+  if (newClienteId) {
+    await cargarDatosCliente(newClienteId);
+  } else {
+    formData.value.clienteNombre = '';
+    formData.value.valorVivienda = 0;
+    formData.value.cuotaInicial = 0;
+    formData.value.cuotaInicialPorcentaje = 0;
+    formData.value.programaObjetivo = '';
+  }
+});
+
+watch(() => formData.value.entidadFinanciera, (newValue) => {
+  if (newValue) {
+    entidadSeleccionada.value = entidadesFinancieras.value.find(e => e.value === newValue);
+
+    if (entidadSeleccionada.value && entidadSeleccionada.value.teaDefault) {
+      formData.value.tasaInteres = entidadSeleccionada.value.teaDefault;
+      validateTEA();
+    }
+  } else {
+    entidadSeleccionada.value = null;
+    formData.value.tasaInteres = 0;
+    teaError.value = '';
+  }
+});
+
+watch(() => formData.value.tasaInteres, () => {
+  validateTEA();
+});
+
+watch(() => formData.value.tipoPeriodoGracia, (newValue) => {
+  if (newValue === 'ninguno') {
+    formData.value.periodoGracia = 0;
+  } else if (formData.value.periodoGracia === 0) {
+    formData.value.periodoGracia = 1;
+  }
+});
+
+watch(() => formData.value.cuotaInicial, () => {
+  if (formData.value.valorVivienda > 0) {
+    formData.value.cuotaInicialPorcentaje = Math.round(
+        (formData.value.cuotaInicial / formData.value.valorVivienda) * 100 * 100
+    ) / 100;
+  }
+});
+
+watch(() => formData.value.cuotaInicialPorcentaje, (newValue) => {
+  if (formData.value.valorVivienda > 0 && newValue >= 0 && newValue <= 100) {
+    const calculado = (formData.value.valorVivienda * newValue) / 100;
+    if (Math.abs(calculado - formData.value.cuotaInicial) > 0.01) {
+      formData.value.cuotaInicial = Math.round(calculado * 100) / 100;
+    }
+  }
+});
+
+watch(() => formData.value.valorVivienda, () => {
+  if (formData.value.cuotaInicialPorcentaje > 0) {
+    formData.value.cuotaInicial = Math.round(
+        (formData.value.valorVivienda * formData.value.cuotaInicialPorcentaje / 100) * 100
+    ) / 100;
+  }
+});
+
+// Methods
+const cargarDatosCliente = async (clienteId) => {
+  try {
+    const cliente = allClientes.value.find(c => c.id === clienteId);
+
+    if (!cliente) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Advertencia',
+        detail: 'No se encontró la información del cliente',
+        life: 3000
+      });
+      return;
+    }
+
+    formData.value.clienteNombre = cliente.nombresApellidos;
+    formData.value.clienteId = cliente.id;
+
+    if (cliente.vivienda) {
+      if (cliente.vivienda.valorVivienda) {
+        formData.value.valorVivienda = parseFloat(cliente.vivienda.valorVivienda) || 0;
+      }
+
+      if (cliente.vivienda.cuotaInicial) {
+        formData.value.cuotaInicial = parseFloat(cliente.vivienda.cuotaInicial) || 0;
+      }
+
+      if (cliente.vivienda.cuotaInicialPorcentaje) {
+        formData.value.cuotaInicialPorcentaje = parseFloat(cliente.vivienda.cuotaInicialPorcentaje) || 0;
+      }
+
+      if (cliente.vivienda.modalidadVivienda) {
+        formData.value.programaObjetivo = cliente.vivienda.modalidadVivienda;
+      } else if (cliente.vivienda.proyecto) {
+        formData.value.programaObjetivo = cliente.vivienda.proyecto;
+      }
+    }
+
+    updateMontoFinanciado();
+
+    toast.add({
+      severity: 'success',
+      summary: 'Datos cargados',
+      detail: `Se cargaron los datos de ${cliente.nombresApellidos}`,
+      life: 2000
+    });
+
+  } catch (error) {
+    console.error('Error al cargar datos del cliente:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Error al cargar los datos del cliente',
+      life: 3000
+    });
+  }
+};
+
+const validateTEA = () => {
+  if (!entidadSeleccionada.value || !formData.value.tasaInteres) {
+    teaError.value = '';
+    return true;
+  }
+
+  const tea = parseFloat(formData.value.tasaInteres);
+  const min = entidadSeleccionada.value.teaMin;
+  const max = entidadSeleccionada.value.teaMax;
+
+  if (tea < min) {
+    teaError.value = `La TEA no puede ser menor a ${min}%`;
+    return false;
+  }
+
+  if (tea > max) {
+    teaError.value = `La TEA no puede ser mayor a ${max}%`;
+    return false;
+  }
+
+  teaError.value = '';
+  return true;
+};
+
 const updateMontoFinanciado = () => {
   formData.value.montoFinanciado = montoFinanciadoCalculado.value;
 };
 
-// Methods
 const handleCalcular = async () => {
   try {
-    // Validaciones básicas
     if (!formData.value.clienteNombre) {
       toast.add({
         severity: 'warn',
@@ -97,10 +281,17 @@ const handleCalcular = async () => {
       return;
     }
 
-    // Actualizar monto financiado
-    updateMontoFinanciado();
+    if (!validateTEA()) {
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: teaError.value,
+        life: 3000
+      });
+      return;
+    }
 
-    // Realizar cálculo
+    updateMontoFinanciado();
     await calcular(formData.value);
 
     toast.add({
@@ -150,9 +341,11 @@ const handleEditar = () => {
 
 const handleLimpiar = () => {
   formData.value = {
+    clienteId: null,
     clienteNombre: '',
     programaObjetivo: '',
     cuotaInicial: 0,
+    cuotaInicialPorcentaje: 0,
     valorVivienda: 0,
     montoBono: 0,
     montoFinanciado: 0,
@@ -163,6 +356,7 @@ const handleLimpiar = () => {
     costosAdicionales: '+',
     plazoPrestamo: 240,
     periodoGracia: 0,
+    tipoPeriodoGracia: 'ninguno',
     seguroDesgravamen: 0,
     tasacion: 0,
     seguroInmueble: 0,
@@ -170,6 +364,8 @@ const handleLimpiar = () => {
     comisionDesembolso: 0
   };
 
+  entidadSeleccionada.value = null;
+  teaError.value = '';
   limpiarSimulacion();
 
   toast.add({
@@ -232,25 +428,19 @@ onMounted(async () => {
 
 <template>
   <div class="simulador-view">
-    <!-- Header -->
     <div class="page-header">
       <h1 class="page-title">SIMULADOR DE PLAN DE PAGOS</h1>
     </div>
 
-    <!-- Content Card -->
     <div class="content-card">
-      <!-- Formulario en Grid 2 Columnas -->
       <div class="form-section">
         <div class="grid">
-          <!-- COLUMNA IZQUIERDA -->
-
-          <!-- Cliente -->
           <div class="col-12 md:col-6">
             <div class="field">
               <label for="cliente">Cliente</label>
               <Dropdown
                   id="cliente"
-                  v-model="formData.clienteNombre"
+                  v-model="formData.clienteId"
                   :options="clientesOptions"
                   optionLabel="label"
                   optionValue="value"
@@ -258,53 +448,49 @@ onMounted(async () => {
                   class="w-full"
                   :disabled="loading"
                   appendTo="body"
-              />
+              >
+                <template #value="slotProps">
+                  <div v-if="slotProps.value">
+                    <i class="pi pi-user mr-2"></i>
+                    {{ clientesOptions.find(c => c.value === slotProps.value)?.label }}
+                  </div>
+                  <span v-else>
+                    {{ slotProps.placeholder }}
+                  </span>
+                </template>
+                <template #option="slotProps">
+                  <div class="flex align-items-center">
+                    <i class="pi pi-user mr-2"></i>
+                    <span>{{ slotProps.option.label }}</span>
+                  </div>
+                </template>
+              </Dropdown>
+              <small class="p-help">Los datos del cliente se cargarán automáticamente</small>
             </div>
           </div>
 
-          <!-- Programa Objetivo -->
           <div class="col-12 md:col-6">
             <div class="field">
               <label for="programa">Programa objetivo</label>
               <InputText
                   id="programa"
                   v-model="formData.programaObjetivo"
-                  placeholder="Techo Propio"
+                  placeholder="Ej: Techo Propio, MiVivienda"
                   class="w-full"
                   :disabled="loading"
               />
             </div>
           </div>
 
-          <!-- Cuota Inicial -->
-          <div class="col-12 md:col-6">
-            <div class="field">
-              <label for="cuotaInicial">Cuota inicial (S/.)</label>
-              <InputNumber
-                  id="cuotaInicial"
-                  v-model="formData.cuotaInicial"
-                  mode="currency"
-                  currency="PEN"
-                  locale="es-PE"
-                  :minFractionDigits="2"
-                  class="w-full"
-                  :disabled="loading"
-                  @input="updateMontoFinanciado"
-              />
-            </div>
-          </div>
-
-          <!-- Valor Vivienda -->
           <div class="col-12 md:col-6">
             <div class="field">
               <label for="valorVivienda">Valor de vivienda (S/.)</label>
               <InputNumber
                   id="valorVivienda"
                   v-model="formData.valorVivienda"
-                  mode="currency"
-                  currency="PEN"
-                  locale="es-PE"
+                  mode="decimal"
                   :minFractionDigits="2"
+                  :maxFractionDigits="2"
                   class="w-full"
                   :disabled="loading"
                   @input="updateMontoFinanciado"
@@ -312,17 +498,44 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Monto del Bono -->
+          <div class="col-12 md:col-6">
+            <div class="field">
+              <label for="cuotaInicial">Cuota inicial</label>
+              <div class="cuota-input-group">
+                <InputNumber
+                    id="cuotaInicialPorcentaje"
+                    v-model="formData.cuotaInicialPorcentaje"
+                    suffix="%"
+                    :minFractionDigits="2"
+                    :maxFractionDigits="2"
+                    :min="0"
+                    :max="100"
+                    class="cuota-percentage"
+                    :disabled="loading"
+                />
+                <InputNumber
+                    id="cuotaInicial"
+                    v-model="formData.cuotaInicial"
+                    mode="decimal"
+                    :minFractionDigits="2"
+                    :maxFractionDigits="2"
+                    class="cuota-amount"
+                    :disabled="loading"
+                    @input="updateMontoFinanciado"
+                />
+              </div>
+            </div>
+          </div>
+
           <div class="col-12 md:col-6">
             <div class="field">
               <label for="montoBono">Monto del Bono (S/.)</label>
               <InputNumber
                   id="montoBono"
                   v-model="formData.montoBono"
-                  mode="currency"
-                  currency="PEN"
-                  locale="es-PE"
+                  mode="decimal"
                   :minFractionDigits="2"
+                  :maxFractionDigits="2"
                   class="w-full"
                   :disabled="loading"
                   @input="updateMontoFinanciado"
@@ -330,26 +543,21 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Monto Financiado (SIEMPRE EN VERDE) -->
           <div class="col-12 md:col-6">
             <div class="field">
-              <label for="montoFinanciado">Monto Financiado (S/.)</label>
+              <label for="montoFinanciado">Saldo a financiar (S/.)</label>
               <InputNumber
                   id="montoFinanciado"
                   :value="montoFinanciadoCalculado"
-                  mode="currency"
-                  currency="PEN"
-                  locale="es-PE"
+                  mode="decimal"
                   :minFractionDigits="2"
+                  :maxFractionDigits="2"
                   class="w-full monto-financiado-input"
                   disabled
               />
             </div>
           </div>
 
-          <!-- COLUMNA DERECHA -->
-
-          <!-- Fecha de Inicio de Pago -->
           <div class="col-12 md:col-6">
             <div class="field">
               <label for="fechaInicio">Fecha de Inicio de Pago</label>
@@ -364,7 +572,6 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Entidad Financiera -->
           <div class="col-12 md:col-6">
             <div class="field">
               <label for="entidad">Entidad Financiera</label>
@@ -382,40 +589,37 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Tipo de Tasa y Valor -->
           <div class="col-12 md:col-6">
             <div class="field">
               <label for="tipoTasa">Tipo de Tasa</label>
-              <div class="flex gap-2">
-                <Dropdown
-                    id="tipoTasa"
-                    v-model="formData.tipoTasa"
-                    :options="[
-                      { label: 'TEA', value: 'TEA' },
-                      { label: 'TEM', value: 'TEM' }
-                    ]"
-                    optionLabel="label"
-                    optionValue="value"
-                    class="flex-1"
-                    :disabled="loading"
-                    appendTo="body"
+              <div class="flex gap-2 align-items-center">
+                <InputText
+                    value="TEA"
+                    class="tipo-tasa-fixed"
+                    disabled
                 />
                 <InputNumber
                     v-model="formData.tasaInteres"
                     suffix="%"
                     :minFractionDigits="2"
                     :maxFractionDigits="2"
+                    :min="0"
+                    :max="100"
                     class="flex-1"
-                    :disabled="loading"
+                    :disabled="loading || !formData.entidadFinanciera"
+                    :class="{ 'p-invalid': teaError }"
                 />
               </div>
+              <small v-if="teaError" class="p-error">{{ teaError }}</small>
+              <small v-else-if="entidadSeleccionada" class="p-help">
+                Rango permitido: {{ entidadSeleccionada.teaMin }}% - {{ entidadSeleccionada.teaMax }}%
+              </small>
             </div>
           </div>
 
-          <!-- Costos Adicionales -->
           <div class="col-12 md:col-6">
             <div class="field">
-              <label for="costos">Costos adicionales</label>
+              <label for="costos">Costos/Gastos adicionales</label>
               <div class="flex gap-2">
                 <InputText
                     id="costos"
@@ -433,7 +637,6 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Plazo del Préstamo -->
           <div class="col-12 md:col-6">
             <div class="field">
               <label for="plazo">Plazo del prestamo</label>
@@ -441,13 +644,7 @@ onMounted(async () => {
                 <Dropdown
                     id="plazo"
                     v-model="formData.plazoPrestamo"
-                    :options="[
-                      { label: '5 años', value: 60 },
-                      { label: '10 años', value: 120 },
-                      { label: '15 años', value: 180 },
-                      { label: '20 años', value: 240 },
-                      { label: '25 años', value: 300 }
-                    ]"
+                    :options="plazosOptions"
                     optionLabel="label"
                     optionValue="value"
                     class="flex-1"
@@ -457,46 +654,49 @@ onMounted(async () => {
                 <InputNumber
                     :value="formData.plazoPrestamo"
                     suffix=" m"
-                    class="flex-1"
+                    class="flex-1 meses-display"
                     disabled
                 />
               </div>
             </div>
           </div>
 
-          <!-- Periodo de Gracia -->
           <div class="col-12 md:col-6">
             <div class="field">
               <label for="gracia">Periodo de gracia</label>
               <div class="flex gap-2">
                 <Dropdown
-                    id="gracia"
-                    v-model="formData.periodoGracia"
-                    :options="[
-                      { label: 'Sin gracia', value: 0 },
-                      { label: '3 meses', value: 3 },
-                      { label: '6 meses', value: 6 },
-                      { label: '12 meses', value: 12 }
-                    ]"
+                    id="tipoGracia"
+                    v-model="formData.tipoPeriodoGracia"
+                    :options="tiposPeriodoGracia"
                     optionLabel="label"
                     optionValue="value"
                     class="flex-1"
                     :disabled="loading"
                     appendTo="body"
                 />
-                <InputNumber
-                    :value="formData.periodoGracia"
-                    suffix=" m"
+                <Dropdown
+                    id="mesesGracia"
+                    v-model="formData.periodoGracia"
+                    :options="periodosGraciaOptions"
+                    optionLabel="label"
+                    optionValue="value"
                     class="flex-1"
-                    disabled
+                    :disabled="loading || formData.tipoPeriodoGracia === 'ninguno'"
+                    appendTo="body"
                 />
               </div>
+              <small v-if="formData.tipoPeriodoGracia === 'total'" class="p-help">
+                Durante el periodo de gracia total solo se pagan intereses
+              </small>
+              <small v-else-if="formData.tipoPeriodoGracia === 'parcial'" class="p-help">
+                Durante el periodo de gracia parcial no se paga nada, los intereses se capitalizan
+              </small>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Botones de Acción -->
       <div class="action-buttons">
         <Button
             label="Calcular"
@@ -528,7 +728,6 @@ onMounted(async () => {
         />
       </div>
 
-      <!-- Resumen del cálculo -->
       <div v-if="simulacionActual" class="resumen-section">
         <h3 class="resumen-title">Resumen del calculo</h3>
 
@@ -559,7 +758,6 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Botón Ver Cronograma -->
         <div class="resumen-button-container">
           <Button
               label="Ver Cronograma"
@@ -571,7 +769,6 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Diálogos -->
     <CostosAdicionalesDialog
         v-model:visible="costosDialogVisible"
         :costos="formData"
@@ -581,10 +778,10 @@ onMounted(async () => {
     <CronogramaDialog
         v-model:visible="cronogramaDialogVisible"
         :cronograma="simulacionActual?.cronogramaPagos"
+        :simulacion="simulacionActual"
         @export="handleExportCronograma"
     />
 
-    <!-- Toast -->
     <Toast />
   </div>
 </template>
@@ -635,9 +832,49 @@ onMounted(async () => {
   font-size: 0.875rem;
 }
 
+.p-error {
+  color: #ef4444;
+  font-size: 0.75rem;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.p-help {
+  color: #6b7280;
+  font-size: 0.75rem;
+  display: block;
+  margin-top: 0.25rem;
+}
+
 .btn-plus {
   padding: 0.75rem !important;
   width: auto !important;
+}
+
+.cuota-input-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.cuota-percentage {
+  flex: 0 0 100px;
+}
+
+.cuota-amount {
+  flex: 1;
+}
+
+.tipo-tasa-fixed {
+  flex: 0 0 80px;
+  text-align: center;
+  font-weight: 700;
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+}
+
+.meses-display {
+  flex: 0 0 100px;
 }
 
 .action-buttons {
@@ -708,7 +945,6 @@ onMounted(async () => {
   font-weight: 700 !important;
 }
 
-/* Estilos responsivos */
 @media (max-width: 768px) {
   .content-card {
     padding: 1rem;
@@ -730,7 +966,6 @@ onMounted(async () => {
   }
 }
 
-/* Estilos para los inputs y dropdowns */
 :deep(.p-inputtext),
 :deep(.p-inputnumber-input),
 :deep(.p-dropdown) {
@@ -752,7 +987,11 @@ onMounted(async () => {
   box-shadow: 0 0 0 0.2rem rgba(5, 150, 105, 0.25) !important;
 }
 
-/* Estilos para los botones */
+:deep(.p-inputnumber-input.p-invalid),
+:deep(.p-inputtext.p-invalid) {
+  border-color: #ef4444 !important;
+}
+
 :deep(.p-button) {
   min-width: 120px;
   padding: 0.75rem 1.5rem;

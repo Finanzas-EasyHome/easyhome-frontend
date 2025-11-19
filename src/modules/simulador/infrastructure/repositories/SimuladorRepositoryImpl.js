@@ -130,8 +130,7 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
             { value: 'mibanco', label: 'Mibanco' },
             { value: 'cajaArequipa', label: 'Caja Arequipa' },
             { value: 'cajaHuancayo', label: 'Caja Huancayo' },
-            { value: 'cajaPiura', label: 'Caja Piura' },
-            { value: 'estadoCivil', label: 'Seleccionar estado civil' }
+            { value: 'cajaPiura', label: 'Caja Piura' }
         ];
     }
 
@@ -146,6 +145,178 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
             { value: 'miViviendaVerde', label: 'MiVivienda Verde' },
             { value: 'convencional', label: 'Crédito Hipotecario Convencional' }
         ];
+    }
+
+    /**
+     * Obtiene los costos adicionales de una entidad financiera
+     * @param {string} entidadValue - El value de la entidad (ej: 'bcp', 'bbva')
+     * @returns {Promise<Object>}
+     */
+    async getCostosEntidad(entidadValue) {
+        try {
+            // Datos basados en los promedios del CSV proporcionado
+            // En producción, esto vendría de la base de datos
+            const costosMap = {
+                'bcp': {
+                    seguroDesgravamen: 0.35,
+                    tasacion: 160,
+                    seguroInmueble: 0.0195,
+                    gastosNotariales: 500,
+                    comisionDesembolso: 0
+                },
+                'bbva': {
+                    seguroDesgravamen: 0.47,
+                    tasacion: 160,
+                    seguroInmueble: 0.0252,
+                    gastosNotariales: 500,
+                    comisionDesembolso: 0
+                },
+                'interbank': {
+                    seguroDesgravamen: 0.47,
+                    tasacion: 160,
+                    seguroInmueble: 0.0209,
+                    gastosNotariales: 500,
+                    comisionDesembolso: 0
+                },
+                'scotiabank': {
+                    seguroDesgravamen: 0.29,
+                    tasacion: 140,
+                    seguroInmueble: 0.031,
+                    gastosNotariales: 310,
+                    comisionDesembolso: 3
+                },
+                'banbif': {
+                    seguroDesgravamen: 0.11,
+                    tasacion: 160,
+                    seguroInmueble: 0.035,
+                    gastosNotariales: 500,
+                    comisionDesembolso: 5
+                },
+                'pichincha': {
+                    seguroDesgravamen: 0.53,
+                    tasacion: 160,
+                    seguroInmueble: 0.0275,
+                    gastosNotariales: 375,
+                    comisionDesembolso: 0
+                },
+                'mibanco': {
+                    seguroDesgravamen: 0.46,
+                    tasacion: 160,
+                    seguroInmueble: 0.0237,
+                    gastosNotariales: 310,
+                    comisionDesembolso: 6.4
+                },
+                'cajaArequipa': {
+                    seguroDesgravamen: 0.07,
+                    tasacion: 160,
+                    seguroInmueble: 0.0253,
+                    gastosNotariales: 310,
+                    comisionDesembolso: 2.5
+                },
+                'cajaHuancayo': {
+                    seguroDesgravamen: 0.14,
+                    tasacion: 242.5,
+                    seguroInmueble: 0.028,
+                    gastosNotariales: 1250,
+                    comisionDesembolso: 11
+                },
+                'cajaPiura': {
+                    seguroDesgravamen: 0.04,
+                    tasacion: 265,
+                    seguroInmueble: 0.0255,
+                    gastosNotariales: 310,
+                    comisionDesembolso: 10
+                }
+            };
+
+            return costosMap[entidadValue] || {
+                seguroDesgravamen: 0,
+                tasacion: 0,
+                seguroInmueble: 0,
+                gastosNotariales: 0,
+                comisionDesembolso: 0
+            };
+        } catch (error) {
+            console.error('Error al obtener costos de entidad:', error);
+            return {
+                seguroDesgravamen: 0,
+                tasacion: 0,
+                seguroInmueble: 0,
+                gastosNotariales: 0,
+                comisionDesembolso: 0
+            };
+        }
+    }
+
+    /**
+     * Obtiene las tasas TEA de una entidad financiera según el programa
+     * @param {string} entidadValue - El value de la entidad (ej: 'bcp', 'bbva')
+     * @param {string} programa - El programa de vivienda ('techoPropio', 'miVivienda', etc.)
+     * @returns {Promise<Object>}
+     */
+    async getTasasEntidad(entidadValue, programa = 'miVivienda') {
+        try {
+            // Datos basados en el CSV de tasas proporcionado
+            // En producción, esto vendría de la base de datos
+            const tasasMap = {
+                'bcp': {
+                    techoPropio: { min: 10.20, max: 12.00, promedio: 11.10 },
+                    miVivienda: { min: 10.20, max: 13.99, promedio: 12.10 }
+                },
+                'bbva': {
+                    techoPropio: { min: 12.51, max: 15.21, promedio: 13.86 },
+                    miVivienda: { min: 12.51, max: 15.28, promedio: 13.90 }
+                },
+                'interbank': {
+                    techoPropio: { min: 13.00, max: 16.00, promedio: 14.50 },
+                    miVivienda: { min: 13.00, max: 16.00, promedio: 14.50 }
+                },
+                'scotiabank': {
+                    techoPropio: { min: 9.99, max: 12.40, promedio: 11.20 },
+                    miVivienda: { min: 9.99, max: 12.40, promedio: 11.20 }
+                },
+                'banbif': {
+                    techoPropio: { min: 20.00, max: 20.00, promedio: 20.00 },
+                    miVivienda: { min: 20.00, max: 20.00, promedio: 20.00 }
+                },
+                'pichincha': {
+                    techoPropio: { min: 15.00, max: 16.50, promedio: 15.75 },
+                    miVivienda: { min: 15.00, max: 16.50, promedio: 15.75 }
+                },
+                'mibanco': {
+                    techoPropio: { min: 10.75, max: 15.80, promedio: 13.28 },
+                    miVivienda: { min: 10.75, max: 15.80, promedio: 13.28 }
+                },
+                'cajaArequipa': {
+                    techoPropio: { min: 13.99, max: 19.99, promedio: 16.99 },
+                    miVivienda: { min: 13.99, max: 19.99, promedio: 16.99 }
+                },
+                'cajaHuancayo': {
+                    techoPropio: { min: 11.22, max: 14.98, promedio: 13.10 },
+                    miVivienda: { min: 11.22, max: 14.98, promedio: 13.10 }
+                },
+                'cajaPiura': {
+                    techoPropio: { min: 13.75, max: 16.00, promedio: 14.88 },
+                    miVivienda: { min: 11.50, max: 16.00, promedio: 13.75 }
+                }
+            };
+
+            const entidadTasas = tasasMap[entidadValue];
+            if (!entidadTasas) {
+                return { min: 0, max: 0, promedio: 0 };
+            }
+
+            // Determinar qué tasas usar según el programa
+            if (programa === 'techoPropio') {
+                return entidadTasas.techoPropio;
+            } else {
+                // Para miVivienda, miViviendaVerde y convencional usar las tasas de NCMV
+                return entidadTasas.miVivienda;
+            }
+        } catch (error) {
+            console.error('Error al obtener tasas de entidad:', error);
+            return { min: 0, max: 0, promedio: 0 };
+        }
     }
 
     /**
