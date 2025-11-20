@@ -6,6 +6,7 @@ import { AuthRepositoryImpl } from '/src/modules/iam/services/AuthRepositoryImpl
 import { SignIn } from '../model/SignIn.js';
 import { SignUp } from '../model/SignUp.js';
 import { SignOut } from '../model/SignOut.js';
+import { supabase } from "/src/shared/infrastructure/supabase.js";
 
 /**
  * Composable para manejar la lógica de autenticación
@@ -53,17 +54,48 @@ export const useAuth = () => {
         }
     };
 
-    const signIn = async (credentials) => {
+    const signIn = async ({ username, password }) => {
         loading.value = true;
         error.value = null;
+
         try {
-            const result = await signInUseCase.execute(credentials);
-            user.value = result.user;
+            // 1️⃣ Buscar email por username
+            const { data: userProfile, error: userError } = await supabase
+                .from("users")
+                .select("email")
+                .eq("username", username)
+                .maybeSingle();
+
+            if (!userProfile) {
+                throw new Error("Usuario o contraseña incorrectos");
+            }
+
+            // 2️⃣ Autenticar en supabase
+            const { data, error: loginError } = await supabase.auth.signInWithPassword({
+                email: userProfile.email,
+                password
+            });
+
+            if (loginError) throw new Error("Usuario o contraseña incorrectos");
+
+            // 3️⃣ Obtener el perfil completo
+            const { data: profile } = await supabase
+                .from("users")
+                .select("*")
+                .eq("email", userProfile.email)
+                .maybeSingle();
+
+            user.value = profile;
             isAuthenticated.value = true;
-            return result;
+
+            localStorage.setItem("user", JSON.stringify(profile));
+            localStorage.setItem("token", data.session.access_token);
+
+            return { user: profile };
+
         } catch (e) {
-            error.value = e.message || 'Error al iniciar sesión';
-            console.error('Error en signIn:', e);
+            error.value = e.message;
+            console.error("LOGIN ERROR:", e);
             throw e;
         } finally {
             loading.value = false;
@@ -92,14 +124,11 @@ export const useAuth = () => {
             loading.value = true;
             error.value = null;
 
-            // Ejecutar el caso de uso de sign out
             await signOutUseCase.execute();
 
-            // Limpiar el estado local
             user.value = null;
             isAuthenticated.value = false;
 
-            // Redirigir al login
             await router.push('/login');
 
             return Promise.resolve();
@@ -151,14 +180,12 @@ export const useAuth = () => {
     };
 
     return {
-        // State
         user: currentUser,
         loading,
         error,
         isAuthenticated,
         isAdmin,
 
-        // Methods
         initAuth,
         signIn,
         signUp,
