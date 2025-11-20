@@ -43,19 +43,31 @@ export class CalcularSimulacion {
      */
     calcularCuotaYCronograma(simulacion) {
         const montoFinanciado = simulacion.montoFinanciado;
-        const tasaMensual = simulacion.tipoTasa === 'TEA'
-            ? this.convertirTEAaTEM(simulacion.tasaInteres)
-            : simulacion.tasaInteres / 100;
-
+        const tasaMensual = this.convertirTEAaTEM(simulacion.tasaInteres);
         const plazoMeses = simulacion.plazoPrestamo;
         const periodoGracia = simulacion.periodoGracia || 0;
+        const tipoPeriodoGracia = simulacion.tipoPeriodoGracia || 'ninguno';
 
-        // Fórmula de cuota fija (método francés)
-        const cuotaPura = montoFinanciado * (tasaMensual * Math.pow(1 + tasaMensual, plazoMeses)) /
-            (Math.pow(1 + tasaMensual, plazoMeses) - 1);
+        // Calcular monto ajustado si hay periodo de gracia parcial
+        let montoAFinanciar = montoFinanciado;
+
+        if (tipoPeriodoGracia === 'parcial' && periodoGracia > 0) {
+            // En periodo de gracia parcial, los intereses se capitalizan
+            // El monto crece durante el periodo de gracia
+            montoAFinanciar = montoFinanciado * Math.pow(1 + tasaMensual, periodoGracia);
+        }
+
+        // Fórmula de cuota fija (método francés) para los meses después del periodo de gracia
+        const mesesAmortizacion = plazoMeses - periodoGracia;
+        const cuotaPura = montoAFinanciar * (tasaMensual * Math.pow(1 + tasaMensual, mesesAmortizacion)) /
+            (Math.pow(1 + tasaMensual, mesesAmortizacion) - 1);
 
         // Agregar costos adicionales mensuales
         const costosAdicionales = this.calcularCostosAdicionalesMensuales(simulacion);
+
+        // Durante periodo de gracia total, solo se pagan intereses + costos
+        // Durante periodo de gracia parcial, no se paga nada
+        // Después del periodo de gracia, se paga la cuota fija + costos
         simulacion.cuotaMensual = Math.round((cuotaPura + costosAdicionales) * 100) / 100;
 
         // Generar cronograma
@@ -64,7 +76,8 @@ export class CalcularSimulacion {
             montoFinanciado,
             tasaMensual,
             cuotaPura,
-            costosAdicionales
+            costosAdicionales,
+            montoAFinanciar
         );
 
         // Calcular total de intereses
@@ -100,13 +113,14 @@ export class CalcularSimulacion {
     }
 
     /**
-     * Genera el cronograma de pagos detallado
+     * Genera el cronograma de pagos detallado con manejo de periodo de gracia
      */
-    generarCronogramaPagos(simulacion, montoFinanciado, tasaMensual, cuotaPura, costosAdicionales) {
+    generarCronogramaPagos(simulacion, montoFinanciadoInicial, tasaMensual, cuotaPura, costosAdicionales, montoAjustadoGracia) {
         const cronograma = [];
-        let saldoInicial = montoFinanciado;
+        let saldoInicial = montoFinanciadoInicial;
         const fechaInicio = new Date(simulacion.fechaInicioPago);
         const periodoGracia = simulacion.periodoGracia || 0;
+        const tipoPeriodoGracia = simulacion.tipoPeriodoGracia || 'ninguno';
 
         for (let i = 1; i <= simulacion.plazoPrestamo; i++) {
             const fechaPago = new Date(fechaInicio);
@@ -115,18 +129,37 @@ export class CalcularSimulacion {
             let interes = saldoInicial * tasaMensual;
             let amortizacion = 0;
             let cuotaBase = 0;
+            let seguros = 0;
 
             if (i <= periodoGracia) {
-                // Durante período de gracia solo se pagan intereses
-                cuotaBase = interes;
-                amortizacion = 0;
+                // Durante el periodo de gracia
+                if (tipoPeriodoGracia === 'total') {
+                    // Periodo de gracia total: solo se pagan intereses
+                    cuotaBase = interes;
+                    amortizacion = 0;
+                    seguros = costosAdicionales;
+                } else if (tipoPeriodoGracia === 'parcial') {
+                    // Periodo de gracia parcial: no se paga nada, los intereses se capitalizan
+                    cuotaBase = 0;
+                    amortizacion = 0;
+                    seguros = 0;
+                    // El saldo aumenta por los intereses capitalizados
+                    saldoInicial = saldoInicial * (1 + tasaMensual);
+                }
             } else {
-                // Pago normal
+                // Después del periodo de gracia: pago normal
+                // Si hubo periodo de gracia parcial, usar el monto ajustado
+                if (i === periodoGracia + 1 && tipoPeriodoGracia === 'parcial') {
+                    saldoInicial = montoAjustadoGracia;
+                    interes = saldoInicial * tasaMensual;
+                }
+
                 cuotaBase = cuotaPura;
                 amortizacion = cuotaPura - interes;
+                seguros = costosAdicionales;
             }
 
-            const cuotaTotal = cuotaBase + costosAdicionales;
+            const cuotaTotal = cuotaBase + seguros;
             const saldoFinal = saldoInicial - amortizacion;
 
             cronograma.push({
@@ -136,9 +169,11 @@ export class CalcularSimulacion {
                 cuotaBase: Math.round(cuotaBase * 100) / 100,
                 interes: Math.round(interes * 100) / 100,
                 amortizacion: Math.round(amortizacion * 100) / 100,
-                seguros: costosAdicionales,
+                seguros: Math.round(seguros * 100) / 100,
                 cuotaTotal: Math.round(cuotaTotal * 100) / 100,
-                saldoFinal: Math.round(saldoFinal * 100) / 100
+                saldoFinal: Math.round(saldoFinal * 100) / 100,
+                enPeriodoGracia: i <= periodoGracia,
+                tipoPeriodoGracia: i <= periodoGracia ? tipoPeriodoGracia : null
             });
 
             saldoInicial = saldoFinal;
@@ -189,14 +224,8 @@ export class CalcularSimulacion {
             flujos.push(pago.cuotaTotal);
         });
 
-        let tir = 0.1; // Estimación inicial 10%
-
         // Simplificación: usar la tasa mensual como aproximación
-        if (simulacion.tipoTasa === 'TEA') {
-            tir = this.convertirTEAaTEM(simulacion.tasaInteres) * 12 * 100;
-        } else {
-            tir = simulacion.tasaInteres * 12;
-        }
+        const tir = this.convertirTEAaTEM(simulacion.tasaInteres) * 12 * 100;
 
         return Math.round(tir * 100) / 100;
     }

@@ -1,146 +1,57 @@
 // src/modules/iam/infrastructure/services/authService.js
 
-/**
- * Servicio de utilidades para autenticación
- */
+import { supabase } from '@/shared/infrastructure/supabase'
+
 export class AuthService {
+
     /**
-     * Obtiene el token del localStorage
-     * @returns {string|null}
+     * Iniciar sesión con email y password
      */
-    static getToken() {
-        return localStorage.getItem('token');
+    static async signIn(email, password) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (error) throw error;
+
+        return data; // contiene session + user
     }
 
     /**
-     * Guarda el token en el localStorage
-     * @param {string} token
+     * Registrarse
      */
-    static setToken(token) {
-        localStorage.setItem('token', token);
+    static async signUp(email, password) {
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password
+        });
+
+        if (error) throw error;
+
+        return data;
     }
 
     /**
-     * Elimina el token del localStorage
+     * Cerrar sesión
      */
-    static removeToken() {
-        localStorage.removeItem('token');
+    static async signOut() {
+        await supabase.auth.signOut();
     }
 
     /**
-     * Obtiene los datos del usuario del localStorage
-     * @returns {Object|null}
+     * Obtener sesión activa
      */
-    static getUser() {
-        const userStr = localStorage.getItem('user');
-        if (!userStr) return null;
-
-        try {
-            return JSON.parse(userStr);
-        } catch (error) {
-            console.error('Error al parsear usuario:', error);
-            return null;
-        }
+    static async getSession() {
+        const { data } = await supabase.auth.getSession();
+        return data.session;
     }
 
     /**
-     * Guarda los datos del usuario en el localStorage
-     * @param {Object} user
+     * Obtener el usuario del Auth
      */
-    static setUser(user) {
-        localStorage.setItem('user', JSON.stringify(user));
-    }
-
-    /**
-     * Elimina los datos del usuario del localStorage
-     */
-    static removeUser() {
-        localStorage.removeItem('user');
-    }
-
-    /**
-     * Verifica si hay un usuario autenticado
-     * @returns {boolean}
-     */
-    static isAuthenticated() {
-        const token = this.getToken();
-        const user = this.getUser();
-        return !!(token && user);
-    }
-
-    /**
-     * Limpia toda la información de autenticación
-     */
-    static clearAuth() {
-        this.removeToken();
-        this.removeUser();
-    }
-
-    /**
-     * Decodifica un token JWT (simulado)
-     * @param {string} token
-     * @returns {Object|null}
-     */
-    static decodeToken(token) {
-        try {
-            const parts = token.split('.');
-            if (parts.length !== 3) {
-                return null;
-            }
-            return JSON.parse(atob(parts[1]));
-        } catch (error) {
-            console.error('Error al decodificar token:', error);
-            return null;
-        }
-    }
-
-    /**
-     * Verifica si el token ha expirado
-     * @param {string} token
-     * @returns {boolean}
-     */
-    static isTokenExpired(token) {
-        const payload = this.decodeToken(token);
-        if (!payload || !payload.exp) {
-            return true;
-        }
-        return payload.exp < Date.now();
-    }
-
-    /**
-     * Verifica si el usuario es administrador
-     * @returns {boolean}
-     */
-    static isAdmin() {
-        const user = this.getUser();
-        return user?.role === 'admin';
-    }
-
-    /**
-     * Obtiene el nombre completo del usuario
-     * @returns {string}
-     */
-    static getUserFullName() {
-        const user = this.getUser();
-        if (!user) return '';
-
-        if (user.firstName && user.lastName) {
-            return `${user.firstName} ${user.lastName}`;
-        }
-
-        return user.username || '';
-    }
-
-    /**
-     * Verifica los permisos del usuario para una acción
-     * @param {string} permission
-     * @returns {boolean}
-     */
-    static hasPermission(permission) {
-        const user = this.getUser();
-        if (!user) return false;
-
-        // Por ahora, solo admin tiene todos los permisos
-        return user.role === 'admin';
+    static async getUser() {
+        const { data } = await supabase.auth.getUser();
+        return data.user;
     }
 }

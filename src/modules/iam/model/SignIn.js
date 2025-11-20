@@ -17,6 +17,7 @@ export class SignIn {
      */
     async execute(credentials) {
         try {
+            // Validación de dominio (NO SE TOCA)
             const user = User.create(credentials);
             const validation = user.validateForLogin();
 
@@ -28,10 +29,14 @@ export class SignIn {
 
             if (result.token) {
                 localStorage.setItem('token', result.token);
+            }
+
+            if (result.user) {
                 localStorage.setItem('user', JSON.stringify(result.user));
             }
 
             return result;
+
         } catch (error) {
             console.error('Error en SignIn:', error);
             throw error;

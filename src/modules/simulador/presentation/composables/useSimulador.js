@@ -167,6 +167,19 @@ export const useSimulador = () => {
     };
 
     /**
+     * Obtiene las tasas TEA de una entidad según el programa
+     */
+    const fetchTasasEntidad = async (entidadValue, programa = 'miVivienda') => {
+        try {
+            const tasas = await repository.getTasasEntidad(entidadValue, programa);
+            return tasas;
+        } catch (e) {
+            console.error('Error al obtener tasas de entidad:', e);
+            return { min: 0, max: 0, promedio: 0 };
+        }
+    };
+
+    /**
      * Exporta el cronograma a un archivo compatible con Excel
      */
     const exportarCronograma = (fileName = 'cronograma_pagos.xls') => {
@@ -269,6 +282,7 @@ export const useSimulador = () => {
         limpiarSimulacion,
         fetchEntidadesFinancieras,
         fetchProgramasVivienda,
+        fetchTasasEntidad,
         exportarCronograma,
         clearError
     };

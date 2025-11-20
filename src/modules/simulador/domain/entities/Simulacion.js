@@ -14,16 +14,18 @@ export class Simulacion {
 
         // Datos financieros
         this.cuotaInicial = data.cuotaInicial || 0;
+        this.cuotaInicialPorcentaje = data.cuotaInicialPorcentaje || 0;
         this.valorVivienda = data.valorVivienda || 0;
         this.montoBono = data.montoBono || 0;
         this.montoFinanciado = data.montoFinanciado || 0;
 
         // Parámetros del préstamo
         this.fechaInicioPago = data.fechaInicioPago || null;
-        this.tipoTasa = data.tipoTasa || 'TEA'; // TEA o TEM
+        this.tipoTasa = data.tipoTasa || 'TEA'; // Solo TEA
         this.tasaInteres = data.tasaInteres || 0;
         this.plazoPrestamo = data.plazoPrestamo || 0;
         this.periodoGracia = data.periodoGracia || 0;
+        this.tipoPeriodoGracia = data.tipoPeriodoGracia || 'ninguno'; // 'ninguno', 'total', 'parcial'
 
         // Costos adicionales
         this.entidadFinanciera = data.entidadFinanciera || '';
@@ -89,12 +91,38 @@ export class Simulacion {
             errors.push('La tasa de interés debe ser mayor a 0');
         }
 
-        if (!this.plazoPrestamo || this.plazoPrestamo <= 0) {
-            errors.push('El plazo del préstamo debe ser mayor a 0');
+        if (this.tasaInteres > 100) {
+            errors.push('La tasa de interés no puede ser mayor a 100%');
+        }
+
+        if (!this.plazoPrestamo || this.plazoPrestamo < 60 || this.plazoPrestamo > 300) {
+            errors.push('El plazo del préstamo debe estar entre 5 y 25 años (60 a 300 meses)');
         }
 
         if (!this.entidadFinanciera || this.entidadFinanciera === '') {
             errors.push('La entidad financiera es requerida');
+        }
+
+        // Validar periodo de gracia
+        if (this.periodoGracia < 0) {
+            errors.push('El periodo de gracia no puede ser negativo');
+        }
+
+        if (this.periodoGracia > 0 && !['total', 'parcial'].includes(this.tipoPeriodoGracia)) {
+            errors.push('Debe especificar el tipo de periodo de gracia (total o parcial)');
+        }
+
+        if (this.periodoGracia > 12) {
+            errors.push('El periodo de gracia no puede ser mayor a 12 meses');
+        }
+
+        if (this.periodoGracia >= this.plazoPrestamo) {
+            errors.push('El periodo de gracia debe ser menor al plazo del préstamo');
+        }
+
+        // Validar tipo de tasa
+        if (this.tipoTasa !== 'TEA') {
+            errors.push('Solo se admite TEA como tipo de tasa');
         }
 
         return {
@@ -120,6 +148,7 @@ export class Simulacion {
             clienteNombre: this.clienteNombre,
             programaObjetivo: this.programaObjetivo,
             cuotaInicial: this.cuotaInicial,
+            cuotaInicialPorcentaje: this.cuotaInicialPorcentaje,
             valorVivienda: this.valorVivienda,
             montoBono: this.montoBono,
             montoFinanciado: this.montoFinanciado,
@@ -128,6 +157,7 @@ export class Simulacion {
             tasaInteres: this.tasaInteres,
             plazoPrestamo: this.plazoPrestamo,
             periodoGracia: this.periodoGracia,
+            tipoPeriodoGracia: this.tipoPeriodoGracia,
             entidadFinanciera: this.entidadFinanciera,
             seguroDesgravamen: this.seguroDesgravamen,
             tasacion: this.tasacion,

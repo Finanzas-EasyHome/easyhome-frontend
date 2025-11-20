@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue';
+import { SimuladorRepositoryImpl } from '../../infrastructure/repositories/SimuladorRepositoryImpl.js';
 
 const props = defineProps({
   visible: {
@@ -14,6 +15,9 @@ const props = defineProps({
 
 const emit = defineEmits(['update:visible', 'guardar']);
 
+// Repository
+const repository = new SimuladorRepositoryImpl();
+
 // State local
 const formData = ref({
   entidadFinanciera: '',
@@ -23,6 +27,8 @@ const formData = ref({
   gastosNotariales: 0,
   comisionDesembolso: 0
 });
+
+const loading = ref(false);
 
 // Opciones de entidades financieras
 const entidadesOptions = [
@@ -52,7 +58,35 @@ watch(() => props.visible, (newVal) => {
   }
 });
 
+// Watch para cargar costos cuando cambia la entidad financiera
+watch(() => formData.value.entidadFinanciera, async (newEntidad) => {
+  if (newEntidad) {
+    await cargarCostosEntidad(newEntidad);
+  }
+});
+
 // Methods
+const cargarCostosEntidad = async (entidadValue) => {
+  try {
+    loading.value = true;
+
+    // Obtener los costos de la entidad seleccionada
+    const costos = await repository.getCostosEntidad(entidadValue);
+
+    // Actualizar el formulario con los costos obtenidos
+    formData.value.seguroDesgravamen = costos.seguroDesgravamen;
+    formData.value.tasacion = costos.tasacion;
+    formData.value.seguroInmueble = costos.seguroInmueble;
+    formData.value.gastosNotariales = costos.gastosNotariales;
+    formData.value.comisionDesembolso = costos.comisionDesembolso;
+
+  } catch (error) {
+    console.error('Error al cargar costos de entidad:', error);
+  } finally {
+    loading.value = false;
+  }
+};
+
 const handleGuardar = () => {
   emit('guardar', { ...formData.value });
   handleClose();
@@ -78,6 +112,11 @@ const handleClose = () => {
       @update:visible="handleClose"
   >
     <div class="costos-form">
+      <div v-if="loading" class="loading-overlay">
+        <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
+        <p class="text-secondary mt-2">Cargando costos...</p>
+      </div>
+
       <div class="grid">
         <!-- Entidad Financiera -->
         <div class="col-12">
@@ -92,6 +131,7 @@ const handleClose = () => {
                 placeholder="Seleccionar"
                 class="w-full"
                 appendTo="body"
+                :disabled="loading"
             />
           </div>
         </div>
@@ -108,6 +148,7 @@ const handleClose = () => {
                 :maxFractionDigits="2"
                 class="w-full"
                 placeholder="0.00"
+                :disabled="loading"
             />
           </div>
         </div>
@@ -124,6 +165,7 @@ const handleClose = () => {
                 :minFractionDigits="2"
                 class="w-full"
                 placeholder="0.00"
+                :disabled="loading"
             />
           </div>
         </div>
@@ -137,9 +179,10 @@ const handleClose = () => {
                 v-model="formData.seguroInmueble"
                 suffix="%"
                 :minFractionDigits="2"
-                :maxFractionDigits="2"
+                :maxFractionDigits="4"
                 class="w-full"
                 placeholder="0.00"
+                :disabled="loading"
             />
           </div>
         </div>
@@ -156,6 +199,7 @@ const handleClose = () => {
                 :minFractionDigits="2"
                 class="w-full"
                 placeholder="0.00"
+                :disabled="loading"
             />
           </div>
         </div>
@@ -173,6 +217,7 @@ const handleClose = () => {
                 :minFractionDigits="2"
                 class="w-full"
                 placeholder="0.00"
+                :disabled="loading"
             />
           </div>
         </div>
@@ -186,12 +231,14 @@ const handleClose = () => {
             icon="pi pi-pencil"
             class="p-button-warning"
             @click="handleEditar"
+            :disabled="loading"
         />
         <Button
             label="Guardar"
             icon="pi pi-check"
             class="p-button-success"
             @click="handleGuardar"
+            :disabled="loading"
         />
       </div>
     </template>
@@ -201,6 +248,22 @@ const handleClose = () => {
 <style scoped>
 .costos-form {
   padding: 0.5rem 0;
+  position: relative;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 8px;
 }
 
 .field {

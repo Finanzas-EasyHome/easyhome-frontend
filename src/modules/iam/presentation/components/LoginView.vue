@@ -3,6 +3,8 @@ import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import { useAuth } from '/src/modules/iam/services/useAuth.js';
+import { supabase } from '/src/shared/infrastructure/supabase.js';
+
 
 const router = useRouter();
 const toast = useToast();
@@ -48,6 +50,7 @@ const resetForm = () => {
 const handleSubmit = async () => {
   try {
     if (isLoginMode.value) {
+      // LOGIN usando el useAuth (NO usar supabase directo)
       await signIn({
         username: formData.value.username,
         password: formData.value.password
@@ -61,8 +64,29 @@ const handleSubmit = async () => {
       });
 
       router.push('/clientes');
-    } else {
-      await signUp(formData.value);
+    }
+
+    else {
+      // REGISTRO — con Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.value.email,
+        password: formData.value.password,
+      });
+
+      if (error) throw new Error("No se pudo crear la cuenta");
+
+      // Guardar perfil
+      const { error: insertError } = await supabase.from('users').insert({
+        id: data.user.id,
+        email: formData.value.email,
+        username: formData.value.username,
+        role: 'user',
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
+
+      if (insertError) throw new Error("No se pudo guardar el perfil");
 
       toast.add({
         severity: 'success',
@@ -73,15 +97,19 @@ const handleSubmit = async () => {
 
       router.push('/clientes');
     }
+
   } catch (error) {
+
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: error.message || 'Ocurrió un error',
+      detail: error.message || 'Usuario o contraseña incorrectos',
       life: 3000
     });
   }
 };
+
+
 </script>
 
 <template>
