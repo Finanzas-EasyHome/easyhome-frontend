@@ -12,6 +12,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
             .select(`
             *,
             vivienda:vivienda_techo_propio!fk_cliente (
+            id,
                 proyecto,
                 tipo_vivienda,
                 valor_vivienda,
@@ -42,6 +43,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
 
             vivienda: c.vivienda
                 ? {
+                    id: c.vivienda.id,
                     proyecto: c.vivienda.proyecto,
                     tipoVivienda: c.vivienda.tipo_vivienda,
                     valorVivienda: c.vivienda.valor_vivienda,
@@ -61,6 +63,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
             .select(`
             *,
             vivienda:vivienda_techo_propio!fk_cliente (
+            id,
                 proyecto,
                 tipo_vivienda,
                 valor_vivienda,
@@ -86,9 +89,9 @@ export class ClienteRepositoryImpl extends ClienteRepository {
             esMigranteRetornado: data.migrante_retornado,
             esPersonaDesplazada: data.persona_desplazada,
 
-            aaporte: c.vivienda
-                ? Number(c.vivienda.valor_vivienda || 0) *
-                (Number(c.vivienda.porcentaje_cuota_inicial || 0) / 100)
+            aaporte: data.vivienda
+                ? Number(data.vivienda.valor_vivienda || 0) *
+                (Number(data.vivienda.porcentaje_cuota_inicial || 0) / 100)
                 : 0,
 
             vivienda: data.vivienda
@@ -107,9 +110,6 @@ export class ClienteRepositoryImpl extends ClienteRepository {
     }
 
 
-    // ============================================================
-    //  CREAR CLIENTE + VIVIENDA
-    // ============================================================
     async create(cliente) {
 
         // 1️⃣ Crear cliente
@@ -153,9 +153,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
         return true;
     }
 
-    // ============================================================
-    //  ACTUALIZAR CLIENTE + VIVIENDA
-    // ============================================================
+
     async update(id, cliente) {
         // 1. actualizar cliente
         const { error } = await supabase
