@@ -1,210 +1,216 @@
-// src/modules/clientes/infrastructure/repositories/ClienteRepositoryImpl.js
+import { supabase } from "/src/shared/infrastructure/supabase.js";
+import { ClienteRepository } from "../../domain/repositories/ClienteRepository.js";
 
-import axios from 'axios';
-import { ClienteRepository } from '../../domain/repositories/ClienteRepository.js';
-
-baseUrl: import.meta.env.VITE_API_BASE_URL;
 export class ClienteRepositoryImpl extends ClienteRepository {
-    constructor() {
-        super();
-        this.baseUrl = import.meta.env.VITE_API_BASE_URL;
-        this.endpoint = `${this.baseUrl}/clientes`;
-    }
 
-    /**
-     * Obtiene el ID del usuario actual
-     * @private
-     */
-    getCurrentUserId() {
-        const userStr = localStorage.getItem('user');
-        if (!userStr) {
-            throw new Error('No hay usuario autenticado');
-        }
-        try {
-            const user = JSON.parse(userStr);
-            return user.id;
-        } catch (error) {
-            throw new Error('Error al obtener usuario actual');
-        }
-    }
-
-    /**
-     * Verifica si el usuario es admin
-     * @private
-     */
-    isAdmin() {
-        const userStr = localStorage.getItem('user');
-        if (!userStr) return false;
-        try {
-            const user = JSON.parse(userStr);
-            return user.role === 'admin';
-        } catch (error) {
-            return false;
-        }
-    }
-
-    /**
-     * Obtiene todos los clientes del usuario actual
-     * @returns {Promise<Array>}
-     */
+    // ============================================================
+    //  LISTAR TODOS LOS CLIENTES (JOIN 1 → 1)
+    // ============================================================
     async findAll() {
-        try {
-            const userId = this.getCurrentUserId();
+        const { data, error } = await supabase
+            .from("clientes_techo_propio")
+            .select(`
+                *,
+                vivienda:vivienda_techo_propio (
+                    proyecto,
+                    tipo_vivienda,
+                    valor_vivienda,
+                    modalidad_vivienda,
+                    porcentaje_cuota_inicial,
+                    tipo_vis,
+                    ubicacion
+                )
+            `);
 
-            // Si es admin, ver todos los clientes; si no, solo los suyos
-            const params = this.isAdmin() ? {} : { userId };
+        if (error) throw new Error("Error al obtener clientes");
 
-            const response = await axios.get(this.endpoint, { params });
-            return response.data;
-        } catch (error) {
-            console.error('Error al obtener clientes:', error);
-            this.handleError(error, 'Error al obtener la lista de clientes');
-        }
+        return data.map(c => ({
+            id: c.id,
+            nombresApellidos: c.nombres_completos,
+            dni: c.dni,
+            edad: c.edad,
+            ingresoFamiliar: c.ingreso_familiar,
+            estadoCivil: c.estado_civil,
+            tieneDiscapacidad: c.discapacidad,
+            esMigranteRetornado: c.migrante_retornado,
+            esPersonaDesplazada: c.persona_desplazada,
+
+            // 🟢 Aporte calculado
+            aporte: c.vivienda
+                ? Number(c.vivienda.valor_vivienda) * (Number(c.vivienda.porcentaje_cuota_inicial) / 100)
+                : 0,
+
+
+            vivienda: c.vivienda
+                ? {
+                    proyecto: c.vivienda.proyecto,
+                    tipoVivienda: c.vivienda.tipo_vivienda,
+                    valorVivienda: c.vivienda.valor_vivienda,
+                    modalidadVivienda: c.vivienda.modalidad_vivienda,
+                    cuotaInicial: Number(c.vivienda.valor_vivienda) * (Number(c.vivienda.porcentaje_cuota_inicial) / 100),
+
+                    cuotaInicialPorcentaje: c.vivienda.porcentaje_cuota_inicial,
+                    tipoVIS: c.vivienda.tipo_vis,
+                    ubicacion: c.vivienda.ubicacion,
+                }
+                : null
+        }));
     }
 
-    /**
-     * Obtiene un cliente por su ID
-     * @param {number} id - ID del cliente
-     * @returns {Promise<Object|null>}
-     */
+    // ============================================================
+    //  BUSCAR CLIENTE POR ID (JOIN 1 → 1)
+    // ============================================================
     async findById(id) {
-        try {
-            const response = await axios.get(`${this.endpoint}/${id}`);
-            const cliente = response.data;
+        const { data, error } = await supabase
+            .from("clientes_techo_propio")
+            .select(`
+                *,
+                vivienda:vivienda_techo_propio (
+                    proyecto,
+                    tipo_vivienda,
+                    valor_vivienda,
+                    modalidad_vivienda,
+                    porcentaje_cuota_inicial,
+                    tipo_vis,
+                    ubicacion
+                )
+            `)
+            .eq("id", id)
+            .maybeSingle();
 
-            // Verificar que el cliente pertenece al usuario actual (excepto admin)
-            if (!this.isAdmin()) {
-                const userId = this.getCurrentUserId();
-                if (cliente.userId !== userId) {
-                    throw new Error('No tienes permiso para ver este cliente');
+        if (error) throw new Error("Error al obtener cliente");
+
+        return {
+            id: data.id,
+            nombresApellidos: data.nombres_completos,
+            dni: data.dni,
+            edad: data.edad,
+            ingresoFamiliar: data.ingreso_familiar,
+            estadoCivil: data.estado_civil,
+            tieneDiscapacidad: data.discapacidad,
+            esMigranteRetornado: data.migrante_retornado,
+            esPersonaDesplazada: data.persona_desplazada,
+
+            aporte: data.vivienda
+                ? Number(data.vivienda.valor_vivienda) * (Number(data.vivienda.porcentaje_cuota_inicial) / 100)
+                : 0,
+
+            vivienda: data.vivienda
+                ? {
+                    proyecto: data.vivienda.proyecto,
+                    tipoVivienda: data.vivienda.tipo_vivienda,
+                    valorVivienda: data.vivienda.valor_vivienda,
+                    modalidadVivienda: data.vivienda.modalidad_vivienda,
+                    cuotaInicial: Number(data.vivienda.valor_vivienda) * (Number(data.vivienda.porcentaje_cuota_inicial) / 100),
+
+                    cuotaInicialPorcentaje: data.vivienda.porcentaje_cuota_inicial,
+                    tipoVIS: data.vivienda.tipo_vis,
+                    ubicacion: data.vivienda.ubicacion,
                 }
-            }
-
-            return cliente;
-        } catch (error) {
-            if (error.response?.status === 404) {
-                return null;
-            }
-            console.error('Error al obtener cliente por ID:', error);
-            this.handleError(error, 'Error al obtener el cliente');
-        }
+                : null
+        };
     }
 
-    /**
-     * Crea un nuevo cliente
-     * @param {Object} cliente - Datos del cliente
-     * @returns {Promise<Object>}
-     */
+    // ============================================================
+    //  CREAR CLIENTE + VIVIENDA
+    // ============================================================
     async create(cliente) {
-        try {
-            const userId = this.getCurrentUserId();
 
-            // Agregar userId al cliente
-            const clienteConUserId = {
-                ...cliente,
-                userId
-            };
+        // 1️⃣ Crear cliente
+        const { data: newClient, error: clienteError } = await supabase
+            .from("clientes_techo_propio")
+            .insert({
+                nombres_completos: cliente.nombresApellidos,
+                dni: cliente.dni,
+                edad: cliente.edad,
+                ingreso_familiar: cliente.ingresoFamiliar,
+                estado_civil: cliente.estadoCivil,
+                discapacidad: cliente.tieneDiscapacidad,
+                migrante_retornado: cliente.esMigranteRetornado,
+                persona_desplazada: cliente.esPersonaDesplazada,
+                fecha_registro: new Date()
+            })
+            .select()
+            .maybeSingle();
 
-            const response = await axios.post(this.endpoint, clienteConUserId);
-            return response.data;
-        } catch (error) {
-            console.error('Error al crear cliente:', error);
-            this.handleError(error, 'Error al crear el cliente');
-        }
+        if (clienteError) throw new Error(clienteError.message);
+
+        // 2️⃣ Crear vivienda
+        const vivienda = cliente.vivienda;
+
+        const { error: viviendaError } = await supabase
+            .from("vivienda_techo_propio")
+            .insert({
+                cliente_id: newClient.id,
+                proyecto: vivienda.proyecto,
+                tipo_vivienda: vivienda.tipoVivienda,
+                valor_vivienda: vivienda.valorVivienda,
+                modalidad_vivienda: vivienda.modalidadVivienda,
+                porcentaje_cuota_inicial: vivienda.cuotaInicialPorcentaje,
+                tipo_vis: vivienda.tipoVIS,
+                ubicacion: vivienda.ubicacion,
+                fecha_registro: new Date()
+            });
+
+        if (viviendaError) throw new Error(viviendaError.message);
+
+        return true;
     }
 
-    /**
-     * Actualiza un cliente existente
-     * @param {number} id - ID del cliente
-     * @param {Object} cliente - Datos actualizados del cliente
-     * @returns {Promise<Object>}
-     */
+    // ============================================================
+    //  ACTUALIZAR CLIENTE + VIVIENDA
+    // ============================================================
     async update(id, cliente) {
-        try {
-            // Verificar que el cliente pertenece al usuario actual (excepto admin)
-            if (!this.isAdmin()) {
-                const clienteExistente = await this.findById(id);
-                const userId = this.getCurrentUserId();
 
-                if (clienteExistente.userId !== userId) {
-                    throw new Error('No tienes permiso para actualizar este cliente');
-                }
-            }
+        // 1️⃣ Actualizar cliente
+        const { error } = await supabase
+            .from("clientes_techo_propio")
+            .update({
+                nombres_completos: cliente.nombresApellidos,
+                dni: cliente.dni,
+                edad: cliente.edad,
+                ingreso_familiar: cliente.ingresoFamiliar,
+                estado_civil: cliente.estadoCivil,
+                discapacidad: cliente.tieneDiscapacidad,
+                migrante_retornado: cliente.esMigranteRetornado,
+                persona_desplazada: cliente.esPersonaDesplazada,
+                fecha_actualizacion: new Date()
+            })
+            .eq("id", id);
 
-            const response = await axios.put(`${this.endpoint}/${id}`, cliente);
-            return response.data;
-        } catch (error) {
-            console.error('Error al actualizar cliente:', error);
-            this.handleError(error, 'Error al actualizar el cliente');
-        }
+        if (error) throw new Error("Error al actualizar cliente");
+
+        // 2️⃣ Actualizar vivienda
+        const nuevoPorcentaje = (cliente.vivienda.cuotaInicial / cliente.vivienda.valorVivienda) * 100;
+
+        await supabase
+            .from("vivienda_techo_propio")
+            .update({
+                proyecto: cliente.vivienda.proyecto,
+                tipo_vivienda: cliente.vivienda.tipoVivienda,
+                valor_vivienda: cliente.vivienda.valorVivienda,
+                modalidad_vivienda: cliente.vivienda.modalidadVivienda,
+                porcentaje_cuota_inicial: nuevoPorcentaje,
+                tipo_vis: cliente.vivienda.tipoVIS,
+                ubicacion: cliente.vivienda.ubicacion,
+                fecha_actualizacion: new Date()
+            })
+            .eq("cliente_id", id);
+
+        return true;
     }
 
-    /**
-     * Elimina un cliente
-     * @param {number} id - ID del cliente
-     * @returns {Promise<void>}
-     */
+    // ============================================================
+    //  ELIMINAR CLIENTE (CASCADE)
+    // ============================================================
     async delete(id) {
-        try {
-            // Verificar que el cliente pertenece al usuario actual (excepto admin)
-            if (!this.isAdmin()) {
-                const clienteExistente = await this.findById(id);
-                const userId = this.getCurrentUserId();
+        const { error } = await supabase
+            .from("clientes_techo_propio")
+            .delete()
+            .eq("id", id);
 
-                if (clienteExistente.userId !== userId) {
-                    throw new Error('No tienes permiso para eliminar este cliente');
-                }
-            }
+        if (error) throw new Error("Error al eliminar cliente");
 
-            await axios.delete(`${this.endpoint}/${id}`);
-        } catch (error) {
-            console.error('Error al eliminar cliente:', error);
-            this.handleError(error, 'Error al eliminar el cliente');
-        }
-    }
-
-    /**
-     * Busca clientes por un término de búsqueda
-     * @param {string} query - Término de búsqueda
-     * @returns {Promise<Array>}
-     */
-    async search(query) {
-        try {
-            const userId = this.getCurrentUserId();
-
-            // Obtener todos los clientes del usuario
-            const params = this.isAdmin() ? {} : { userId };
-            const response = await axios.get(this.endpoint, { params });
-
-            // Filtrar localmente por el término de búsqueda
-            const clientes = response.data;
-            const queryLower = query.toLowerCase();
-
-            return clientes.filter(cliente =>
-                cliente.nombresApellidos.toLowerCase().includes(queryLower) ||
-                cliente.dni.includes(queryLower) ||
-                cliente.estadoCivil.toLowerCase().includes(queryLower)
-            );
-        } catch (error) {
-            console.error('Error al buscar clientes:', error);
-            this.handleError(error, 'Error al buscar clientes');
-        }
-    }
-
-    /**
-     * Maneja los errores de las peticiones HTTP
-     * @param {Error} error - Error capturado
-     * @param {string} defaultMessage - Mensaje por defecto
-     * @throws {Error}
-     */
-    handleError(error, defaultMessage) {
-        if (error.response) {
-            const message = error.response.data?.message || defaultMessage;
-            throw new Error(message);
-        } else if (error.request) {
-            throw new Error('No se pudo conectar con el servidor. Verifique su conexión.');
-        } else {
-            throw new Error(error.message || defaultMessage);
-        }
+        return true;
     }
 }

@@ -50,11 +50,15 @@ const resetForm = () => {
 const handleSubmit = async () => {
   try {
     if (isLoginMode.value) {
-      // LOGIN usando el useAuth (NO usar supabase directo)
-      await signIn({
+      // LOGIN usando tu sistema de autenticación
+      const sessionUser = await signIn({
         username: formData.value.username,
         password: formData.value.password
       });
+
+      // Guardar sesión para los repositorios
+      localStorage.setItem('user', JSON.stringify(sessionUser.user));
+      localStorage.setItem('token', sessionUser.token);
 
       toast.add({
         severity: 'success',

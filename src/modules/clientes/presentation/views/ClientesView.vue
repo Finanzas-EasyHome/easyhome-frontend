@@ -48,11 +48,38 @@ const openCreateDialog = () => {
   dialogVisible.value = true;
 };
 
-const openEditDialog = (cliente) => {
-  selectedCliente.value = { ...cliente };
+const openEditDialog = async (cliente) => {
+  // 1. Obtener cliente con vivienda desde Supabase
+  const data = await fetchClienteById(cliente.id);
+
+  // 2. Reconstruimos el objeto con la estructura que espera ClienteDialog
+  selectedCliente.value = {
+    id: data.id,
+    nombresApellidos: data.nombresApellidos,
+    dni: data.dni,
+    edad: data.edad,
+    ingresoFamiliar: data.ingresoFamiliar,
+    estadoCivil: data.estadoCivil,
+    tieneDiscapacidad: data.tieneDiscapacidad,
+    esMigranteRetornado: data.esMigranteRetornado,
+    esPersonaDesplazada: data.esPersonaDesplazada,
+
+    vivienda: {
+      proyecto: data.proyecto,
+      tipoVivienda: data.tipo_vivienda,
+      valorVivienda: data.valor_vivienda,
+      modalidadVivienda: data.modalidad_vivienda,
+      cuotaInicial: data.valor_vivienda * (data.porcentaje_cuota_inicial / 100),
+      cuotaInicialPorcentaje: data.porcentaje_cuota_inicial,
+      tipoVIS: data.tipo_vis,
+      ubicacion: data.ubicacion
+    }
+  };
+
   isEditMode.value = true;
   dialogVisible.value = true;
 };
+
 
 const openDetailDialog = (cliente) => {
   selectedClienteForDetail.value = { ...cliente };
@@ -270,9 +297,10 @@ onMounted(() => {
     <ClienteDialog
         v-model:visible="dialogVisible"
         :cliente="selectedCliente"
-        :is-edit="isEditMode"
+        :isEdit="isEditMode"
         @save="handleSave"
     />
+
 
     <!-- Dialog for Details -->
     <ClienteDetailDialog
