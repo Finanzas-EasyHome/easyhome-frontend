@@ -10,13 +10,16 @@ export class Cliente {
         this.dni = data.dni || '';
         this.edad = data.edad || null;
         this.ingresoFamiliar = data.ingresoFamiliar || 0;
+
+        // Aporte se calcula según vivienda
         this.aporte = data.aporte || 0;
+
         this.estadoCivil = data.estadoCivil || '';
         this.tieneDiscapacidad = data.tieneDiscapacidad ?? false;
         this.esMigranteRetornado = data.esMigranteRetornado ?? false;
         this.esPersonaDesplazada = data.esPersonaDesplazada ?? false;
 
-        // Datos de la vivienda
+        // Datos de Vivienda
         this.vivienda = data.vivienda || {
             proyecto: '',
             tipoVivienda: '',
@@ -28,98 +31,67 @@ export class Cliente {
             ubicacion: ''
         };
 
+        // ===============================
+        // 🔥 SINCRONIZAR CUOTA ↔ PORCENTAJE
+        // ===============================
+        const valor = Number(this.vivienda.valorVivienda) || 0;
+        const cuota = Number(this.vivienda.cuotaInicial) || 0;
+        const porcentaje = Number(this.vivienda.cuotaInicialPorcentaje) || 0;
+
+        // Si llegó porcentaje pero no monto → calcular monto
+        if (valor > 0 && porcentaje > 0 && cuota === 0) {
+            this.vivienda.cuotaInicial = Number((valor * (porcentaje / 100)).toFixed(2));
+        }
+
+        // Si llegó monto pero no porcentaje → calcular porcentaje
+        if (valor > 0 && cuota > 0 && porcentaje === 0) {
+            this.vivienda.cuotaInicialPorcentaje = Number(((cuota * 100) / valor).toFixed(2));
+        }
+
+        // Calcular aporte final
+        this.aporte = Number(this.vivienda.cuotaInicial);
+
         this.createdAt = data.createdAt || null;
         this.updatedAt = data.updatedAt || null;
     }
 
-    /**
-     * Crea una nueva instancia de Cliente
-     * @param {Object} data - Datos del cliente
-     * @returns {Cliente}
-     */
     static create(data) {
         return new Cliente(data);
     }
 
-    /**
-     * Valida los datos del cliente
-     * @returns {Object} { valid: boolean, errors: string[] }
-     */
+    // ============================
+    // VALIDACIONES
+    // ============================
     validate() {
         const errors = [];
 
-        // Validar nombres y apellidos
-        if (!this.nombresApellidos || this.nombresApellidos.trim().length === 0) {
+        if (!this.nombresApellidos.trim()) {
             errors.push('El nombre y apellidos es requerido');
-        } else if (this.nombresApellidos.trim().length < 3) {
-            errors.push('El nombre y apellidos debe tener al menos 3 caracteres');
         }
 
-        // Validar DNI
-        if (!this.dni) {
-            errors.push('El DNI es requerido');
-        } else if (this.dni.length !== 8) {
-            errors.push('El DNI debe tener exactamente 8 dígitos');
-        } else if (!/^\d+$/.test(this.dni)) {
-            errors.push('El DNI solo debe contener números');
+        if (!this.dni || this.dni.length !== 8) {
+            errors.push('El DNI debe tener 8 dígitos');
         }
 
-        // Validar edad
-        if (this.edad === null || this.edad === undefined) {
-            errors.push('La edad es requerida');
-        } else if (this.edad < 18) {
-            errors.push('Debe ser mayor de edad (18 años o más)');
-        } else if (this.edad > 100) {
-            errors.push('La edad debe ser menor o igual a 100 años');
+        if (this.edad === null || this.edad < 18) {
+            errors.push('Debe ser mayor de edad (18+ años)');
         }
 
-        // Validar ingreso familiar
-        if (this.ingresoFamiliar === null || this.ingresoFamiliar === undefined) {
-            errors.push('El ingreso familiar es requerido');
-        } else if (this.ingresoFamiliar < 0) {
-            errors.push('El ingreso familiar debe ser mayor o igual a 0');
+        if (this.ingresoFamiliar <= 0) {
+            errors.push('El ingreso familiar debe ser mayor a 0');
         }
 
-        // Validar aporte
-        if (this.aporte === null || this.aporte === undefined) {
-            errors.push('El aporte es requerido');
-        } else if (this.aporte < 0) {
-            errors.push('El aporte debe ser mayor o igual a 0');
-        }
-
-        // Validar estado civil
-        if (!this.estadoCivil || this.estadoCivil.trim().length === 0) {
+        if (!this.estadoCivil.trim()) {
             errors.push('El estado civil es requerido');
         }
 
-        // Validar datos de vivienda
-        if (!this.vivienda.proyecto || this.vivienda.proyecto.trim().length === 0) {
-            errors.push('El proyecto/nombre de la vivienda es requerido');
-        }
-
-        if (!this.vivienda.tipoVivienda || this.vivienda.tipoVivienda.trim().length === 0) {
-            errors.push('El tipo de vivienda es requerido');
-        }
-
-        if (this.vivienda.valorVivienda === null || this.vivienda.valorVivienda === undefined || this.vivienda.valorVivienda <= 0) {
-            errors.push('El valor de la vivienda debe ser mayor a 0');
-        }
-
-        if (this.vivienda.cuotaInicial === null || this.vivienda.cuotaInicial === undefined || this.vivienda.cuotaInicial < 0) {
-            errors.push('La cuota inicial debe ser mayor o igual a 0');
-        }
-
-        if (!this.vivienda.modalidadVivienda || this.vivienda.modalidadVivienda.trim().length === 0) {
-            errors.push('La modalidad de vivienda es requerida');
-        }
-
-        if (!this.vivienda.tipoVIS || this.vivienda.tipoVIS.trim().length === 0) {
-            errors.push('El tipo de VIS es requerido');
-        }
-
-        if (!this.vivienda.ubicacion || this.vivienda.ubicacion.trim().length === 0) {
-            errors.push('La ubicación es requerida');
-        }
+        // Vivienda
+        if (!this.vivienda.proyecto.trim()) errors.push('El proyecto es requerido');
+        if (!this.vivienda.tipoVivienda.trim()) errors.push('El tipo de vivienda es requerido');
+        if (this.vivienda.valorVivienda <= 0) errors.push('El valor de la vivienda debe ser mayor a 0');
+        if (!this.vivienda.modalidadVivienda.trim()) errors.push('La modalidad es requerida');
+        if (!this.vivienda.tipoVIS.trim()) errors.push('El tipo de VIS es requerido');
+        if (!this.vivienda.ubicacion.trim()) errors.push('La ubicación es requerida');
 
         return {
             valid: errors.length === 0,
@@ -127,32 +99,9 @@ export class Cliente {
         };
     }
 
-    /**
-     * Convierte la entidad a un objeto plano
-     * @returns {Object}
-     */
-    toJSON() {
-        return {
-            id: this.id,
-            nombresApellidos: this.nombresApellidos,
-            dni: this.dni,
-            edad: this.edad,
-            ingresoFamiliar: this.ingresoFamiliar,
-            aporte: this.aporte,
-            estadoCivil: this.estadoCivil,
-            tieneDiscapacidad: this.tieneDiscapacidad,
-            esMigranteRetornado: this.esMigranteRetornado,
-            esPersonaDesplazada: this.esPersonaDesplazada,
-            vivienda: { ...this.vivienda },
-            createdAt: this.createdAt,
-            updatedAt: this.updatedAt
-        };
-    }
-
-    /**
-     * Convierte la entidad a un objeto para enviar a la API (sin id)
-     * @returns {Object}
-     */
+    // ============================
+    // DTO PARA CREAR
+    // ============================
     toCreateDTO() {
         return {
             nombresApellidos: this.nombresApellidos,
@@ -164,34 +113,22 @@ export class Cliente {
             tieneDiscapacidad: this.tieneDiscapacidad,
             esMigranteRetornado: this.esMigranteRetornado,
             esPersonaDesplazada: this.esPersonaDesplazada,
-            vivienda: { ...this.vivienda }
+
+            vivienda: {
+                proyecto: this.vivienda.proyecto,
+                tipoVivienda: this.vivienda.tipoVivienda,
+                valorVivienda: this.vivienda.valorVivienda,
+                modalidadVivienda: this.vivienda.modalidadVivienda,
+                cuotaInicial: this.vivienda.cuotaInicial,
+                cuotaInicialPorcentaje: this.vivienda.cuotaInicialPorcentaje,
+                tipoVIS: this.vivienda.tipoVIS,
+                ubicacion: this.vivienda.ubicacion
+            }
         };
     }
 
-    /**
-     * Convierte la entidad a un objeto para actualizar en la API
-     * @returns {Object}
-     */
+
     toUpdateDTO() {
-        return {
-            nombresApellidos: this.nombresApellidos,
-            dni: this.dni,
-            edad: this.edad,
-            ingresoFamiliar: this.ingresoFamiliar,
-            aporte: this.aporte,
-            estadoCivil: this.estadoCivil,
-            tieneDiscapacidad: this.tieneDiscapacidad,
-            esMigranteRetornado: this.esMigranteRetornado,
-            esPersonaDesplazada: this.esPersonaDesplazada,
-            vivienda: { ...this.vivienda }
-        };
-    }
-
-    /**
-     * Clona la entidad
-     * @returns {Cliente}
-     */
-    clone() {
-        return new Cliente(this.toJSON());
+        return this.toCreateDTO(); // mismos campos
     }
 }

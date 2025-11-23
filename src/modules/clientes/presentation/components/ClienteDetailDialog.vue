@@ -1,66 +1,19 @@
-<script setup>
-import { computed } from 'vue';
-
-const props = defineProps({
-  visible: {
-    type: Boolean,
-    required: true
-  },
-  cliente: {
-    type: Object,
-    default: null
-  }
-});
-
-const emit = defineEmits(['update:visible']);
-
-const formatCurrency = (value) => {
-  return new Intl.NumberFormat('es-PE', {
-    style: 'currency',
-    currency: 'PEN',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(value);
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('es-PE', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date);
-};
-
-const formatBoolean = (value) => {
-  return value ? '✓ Sí' : '✗ No';
-};
-
-const statusBadge = (value) => {
-  return value ? 'badge-success' : 'badge-danger';
-};
-
-const handleClose = () => {
-  emit('update:visible', false);
-};
-</script>
-
 <template>
   <Dialog
       :visible="visible"
       :style="{ width: '950px', maxHeight: '90vh' }"
       header="Detalles del Cliente"
-      :modal="true"
-      :appendTo="'body'"
-      :blockScroll="true"
+      modal
+      appendTo="body"
+      blockScroll
       class="cliente-detail-dialog"
       @update:visible="handleClose"
   >
     <div v-if="cliente" class="detail-container">
-      <!-- Información del Cliente -->
+
+      <!-- ===================== -->
+      <!-- INFORMACIÓN DEL CLIENTE -->
+      <!-- ===================== -->
       <div class="section">
         <div class="section-header">
           <i class="pi pi-user section-icon"></i>
@@ -68,6 +21,7 @@ const handleClose = () => {
         </div>
 
         <div class="grid">
+
           <div class="col-12">
             <div class="detail-item">
               <span class="detail-label">ID:</span>
@@ -121,7 +75,6 @@ const handleClose = () => {
             </div>
           </div>
 
-          <!-- Nuevos campos: Información Adicional -->
           <div class="col-12">
             <div class="divider-light"></div>
           </div>
@@ -152,12 +105,15 @@ const handleClose = () => {
               </span>
             </div>
           </div>
+
         </div>
       </div>
 
       <Divider />
 
-      <!-- Información de la Vivienda -->
+      <!-- ===================== -->
+      <!-- INFORMACIÓN VIVIENDA -->
+      <!-- ===================== -->
       <div class="section">
         <div class="section-header">
           <i class="pi pi-home section-icon"></i>
@@ -165,82 +121,64 @@ const handleClose = () => {
         </div>
 
         <div v-if="cliente.vivienda" class="grid">
-          <!-- Información Básica -->
+
           <div class="col-12 md:col-6">
             <div class="detail-item">
               <span class="detail-label">Proyecto:</span>
-              <span class="detail-value">{{ cliente.vivienda.proyecto || 'N/A' }}</span>
+              <span class="detail-value">{{ cliente.vivienda.proyecto }}</span>
             </div>
           </div>
 
           <div class="col-12 md:col-6">
             <div class="detail-item">
               <span class="detail-label">Tipo de Vivienda:</span>
-              <span class="detail-value">{{ cliente.vivienda.tipoVivienda || 'N/A' }}</span>
+              <span class="detail-value">{{ cliente.vivienda.tipoVivienda }}</span>
             </div>
           </div>
 
-          <!-- Valor y Sostenibilidad -->
           <div class="col-12 md:col-6">
             <div class="detail-item">
-              <span class="detail-label">Valor de la Vivienda:</span>
-              <span class="detail-value text-primary font-bold text-lg">
-                {{ formatCurrency(cliente.vivienda.valorVivienda || 0) }}
+              <span class="detail-label">Valor de Vivienda:</span>
+              <span class="detail-value text-primary font-bold">
+                {{ formatCurrency(cliente.vivienda.valorVivienda) }}
               </span>
             </div>
           </div>
 
-          <div class="col-12 md:col-6">
-            <div class="detail-item">
-              <span class="detail-label">¿Vivienda Sostenible?</span>
-              <span :class="['detail-badge', statusBadge(cliente.vivienda.esViviendaSostenible)]">
-                {{ formatBoolean(cliente.vivienda.esViviendaSostenible) }}
-              </span>
-            </div>
-          </div>
+          <div class="col-12 md:col-6"></div>
 
-          <!-- Cuota Inicial -->
           <div class="col-12 md:col-6">
             <div class="detail-item">
-              <span class="detail-label">Cuota Inicial (Monto):</span>
+              <span class="detail-label">Cuota Inicial:</span>
               <span class="detail-value text-success font-bold">
-                {{ formatCurrency(cliente.vivienda.cuotaInicial || 0) }}
+                {{ formatCurrency(cliente.vivienda.cuotaInicial) }}
               </span>
             </div>
           </div>
 
           <div class="col-12 md:col-6">
             <div class="detail-item">
-              <span class="detail-label">Cuota Inicial (Porcentaje):</span>
-              <span class="detail-value">
-                {{ cliente.vivienda.cuotaInicialPorcentaje || 0 }}%
-              </span>
-            </div>
-          </div>
-
-          <!-- BBP y Ubicación -->
-          <div class="col-12 md:col-6">
-            <div class="detail-item">
-              <span class="detail-label">¿Bono del Buen Pagador?</span>
-              <span class="detail-value">{{ cliente.vivienda.bonoBienPagador || 'N/A' }}</span>
+              <span class="detail-label">Cuota Inicial (%):</span>
+              <span class="detail-value">{{ cliente.vivienda.cuotaInicialPorcentaje }}%</span>
             </div>
           </div>
 
           <div class="col-12 md:col-6">
             <div class="detail-item">
-              <span class="detail-label">Tipo de BBP:</span>
-              <span class="detail-value">{{ cliente.vivienda.tipoBBP || 'N/A' }}</span>
+              <span class="detail-label">Tipo VIS:</span>
+              <span class="detail-value">{{ cliente.vivienda.tipoVIS }}</span>
             </div>
           </div>
+
+          <div class="col-12 md:col-6"></div>
 
           <div class="col-12">
             <div class="detail-item">
               <span class="detail-label">Ubicación:</span>
-              <span class="detail-value">{{ cliente.vivienda.ubicacion || 'N/A' }}</span>
+              <span class="detail-value">{{ cliente.vivienda.ubicacion }}</span>
             </div>
           </div>
 
-          <!-- Resumen Financiero -->
           <div class="col-12">
             <div class="financial-summary">
               <div class="summary-item">
@@ -248,44 +186,22 @@ const handleClose = () => {
                 <span class="summary-value">
                   {{
                     formatCurrency(
-                        (cliente.vivienda.valorVivienda || 0) - (cliente.vivienda.cuotaInicial || 0)
+                        cliente.vivienda.valorVivienda - cliente.vivienda.cuotaInicial
                     )
                   }}
                 </span>
               </div>
             </div>
           </div>
+
         </div>
+
         <div v-else class="text-center text-secondary py-3">
           <p>No hay información de vivienda registrada</p>
         </div>
+
       </div>
 
-      <Divider />
-
-      <!-- Información de Registro -->
-      <div class="section">
-        <div class="section-header">
-          <i class="pi pi-calendar section-icon"></i>
-          <h3 class="section-title">Información de Registro</h3>
-        </div>
-
-        <div class="grid">
-          <div class="col-12 md:col-6">
-            <div class="detail-item">
-              <span class="detail-label">Fecha de Creación:</span>
-              <span class="detail-value">{{ formatDate(cliente.createdAt) }}</span>
-            </div>
-          </div>
-
-          <div class="col-12 md:col-6">
-            <div class="detail-item">
-              <span class="detail-label">Última Actualización:</span>
-              <span class="detail-value">{{ formatDate(cliente.updatedAt) }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <template #footer>
@@ -300,6 +216,7 @@ const handleClose = () => {
     </template>
   </Dialog>
 </template>
+
 
 <style scoped>
 .detail-container {

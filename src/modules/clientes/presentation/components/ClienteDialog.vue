@@ -1,259 +1,389 @@
+<!-- src/modules/clientes/presentation/components/ClienteDialog.vue -->
 <script setup>
 import { ref, watch } from 'vue';
 
-// Props y Emits
+/* ===========================================================
+   PROPS Y EMITS
+   =========================================================== */
 const props = defineProps({
-  visible: {
-    type: Boolean,
-    required: true
-  },
-  cliente: {
-    type: Object,
-    default: null
-  },
-  isEdit: {
-    type: Boolean,
-    default: false
-  }
+  visible: { type: Boolean, required: true },
+  cliente: { type: Object, default: null }, // viene del padre al editar
+  isEdit: { type: Boolean, default: false }
 });
 
-const emit = defineEmits(['update:visible', 'save']);
+const emit = defineEmits(["update:visible", "save"]);
 
-// State
+/* ===========================================================
+   ESTADOS
+   =========================================================== */
 const loading = ref(false);
+
 const form = ref({
-  nombresApellidos: '',
-  dni: '',
+  nombresApellidos: "",
+  dni: "",
   edad: null,
   ingresoFamiliar: 0,
-  aporte: 0,
-  estadoCivil: '',
+  estadoCivil: "Soltero",
   tieneDiscapacidad: false,
   esMigranteRetornado: false,
   esPersonaDesplazada: false,
   vivienda: {
-    proyecto: '',
-    tipoVivienda: '',
+    proyecto: "",
+    tipoVivienda: "",
     valorVivienda: 0,
-    modalidadVivienda: '',
+    modalidadVivienda: "",
     cuotaInicial: 0,
     cuotaInicialPorcentaje: 0,
-    tipoVIS: '',
-    ubicacion: ''
+    tipoVIS: "",
+    ubicacion: ""
   }
 });
 
 const errors = ref({
-  nombresApellidos: '',
-  dni: '',
-  edad: '',
-  ingresoFamiliar: '',
-  aporte: '',
-  estadoCivil: '',
-  viviendaProyecto: '',
-  viviendaTipo: '',
-  viviendaValor: '',
-  viviendaCuotaInicial: '',
-  viviendaModalidad: '',
-  viviendaVIS: '',
-  viviendaUbicacion: ''
+  nombresApellidos: "",
+  dni: "",
+  edad: "",
+  ingresoFamiliar: "",
+  estadoCivil: "",
+  viviendaProyecto: "",
+  viviendaTipo: "",
+  viviendaValor: "",
+  viviendaCuotaInicial: "",
+  viviendaModalidad: "",
+  viviendaVIS: "",
+  viviendaUbicacion: ""
 });
+const proyectosData = [
+  {
+    proyecto: "Proyecto Los capibaras",
+    tipo_vivienda: "Departamento",
+    modalidad_vivienda: "Adquisición de Vivienda",
+    valor_vivienda: 111000,
+    tipo_vis: "VIS en Lote Unifamiliar",
+    ubicacion: "Chorrillos Lima"
+  },
+  {
+    proyecto: "Residencial Mirador Azul",
+    tipo_vivienda: "Departamento",
+    modalidad_vivienda: "Construcción en Sitio Propio",
+    valor_vivienda: 95000,
+    tipo_vis: "VIS Priorizada en Lote Unifamiliar",
+    ubicacion: "Villa El Salvador"
+  }
+];
 
+// Cuando el usuario escriba un proyecto:
+watch(
+    () => form.value.vivienda.proyecto,
+    (nombre) => {
+      if (!nombre) return;
+
+      const v = proyectosData.find((x) => x.proyecto === nombre);
+      if (!v) return;
+
+      // Sincroniza automáticamente el resto de campos
+      form.value.vivienda.tipoVivienda = v.tipo_vivienda;
+      form.value.vivienda.modalidadVivienda = v.modalidad_vivienda;
+      form.value.vivienda.valorVivienda = Number(v.valor_vivienda);
+      form.value.vivienda.tipoVIS = v.tipo_vis;
+      form.value.vivienda.ubicacion = v.ubicacion;
+
+      // Recalcular cuota inicial según porcentaje VIS
+      recalcularCuotaDesdePorcentaje();
+    }
+);
+
+/* ===========================================================
+   LISTAS FIJAS
+   =========================================================== */
 const estadosCiviles = [
-  { label: 'Soltero/a', value: 'Soltero' },
-  { label: 'Casado/a', value: 'Casado' },
-  { label: 'Divorciado/a', value: 'Divorciado' },
-  { label: 'Viudo/a', value: 'Viudo' },
-  { label: 'Conviviente', value: 'Conviviente' }
-];
-
-const tiposVivienda = [
-  { label: 'Casa', value: 'Casa' },
-  { label: 'Departamento', value: 'Departamento' },
-  { label: 'Duplex', value: 'Duplex' },
-  { label: 'Townhouse', value: 'Townhouse' }
-];
-
-const modalidadesVivienda = [
-  { label: 'Crédito MiVivienda', value: 'Crédito MiVivienda' },
-  { label: 'Techo Propio', value: 'Techo Propio' },
-  { label: 'Fondo MiVivienda', value: 'Fondo MiVivienda' },
-  { label: 'Hipotecario Convencional', value: 'Hipotecario Convencional' }
+  { label: "Soltero/a", value: "Soltero" },
+  { label: "Casado/a", value: "Casado" },
+  { label: "Divorciado/a", value: "Divorciado" },
+  { label: "Viudo/a", value: "Viudo" },
+  { label: "Conviviente", value: "Conviviente" }
 ];
 
 const tiposVIS = [
-  { label: 'VIS Estándar', value: 'VIS Estándar' },
-  { label: 'VIS Prioritaria', value: 'VIS Prioritaria' },
-  { label: 'No VIS', value: 'No VIS' }
+  {
+    label: "VIS Priorizada en Lote Unifamiliar",
+    value: "VIS Priorizada en Lote Unifamiliar"
+  },
+  {
+    label: "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta",
+    value: "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta"
+  },
+  {
+    label: "VIS en Edificio Multifamiliar / Conjunto Residencial / Quinta",
+    value: "VIS en Edificio Multifamiliar / Conjunto Residencial / Quinta"
+  },
+  { label: "Ninguna", value: "Ninguna" },
+  {
+    label: "VIS en Lote Unifamiliar",
+    value: "VIS en Lote Unifamiliar"
+  }
 ];
 
-// Funciones helper
+/* Reglas para cada tipo de VIS */
+const visConfig = {
+  "VIS Priorizada en Lote Unifamiliar": { mode: "range", min: 1, max: 2, editable: true },
+  "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta": { mode: "fixed", value: 1, editable: false },
+  "VIS en Edificio Multifamiliar / Conjunto Residencial / Quinta": { mode: "fixed", value: 3, editable: false },
+  "Ninguna": { mode: "fixed", value: 0, editable: false },
+  "VIS en Lote Unifamiliar": { mode: "fixed", value: 3, editable: false }
+};
+
+const porcentajeBloqueado = ref(false);
+
+/* ===========================================================
+   CARGAR DATOS CUANDO ES EDICIÓN
+   =========================================================== */
 function resetForm() {
   form.value = {
-    nombresApellidos: '',
-    dni: '',
+    nombresApellidos: "",
+    dni: "",
     edad: null,
     ingresoFamiliar: 0,
-    aporte: 0,
-    estadoCivil: '',
+    estadoCivil: "Soltero",
     tieneDiscapacidad: false,
     esMigranteRetornado: false,
     esPersonaDesplazada: false,
     vivienda: {
-      proyecto: '',
-      tipoVivienda: '',
+      proyecto: "",
+      tipoVivienda: "",
       valorVivienda: 0,
-      modalidadVivienda: '',
+      modalidadVivienda: "",
       cuotaInicial: 0,
       cuotaInicialPorcentaje: 0,
-      tipoVIS: '',
-      ubicacion: ''
+      tipoVIS: "",
+      ubicacion: ""
     }
   };
 }
 
 function resetErrors() {
   errors.value = {
-    nombresApellidos: '',
-    dni: '',
-    edad: '',
-    ingresoFamiliar: '',
-    aporte: '',
-    estadoCivil: '',
-    viviendaProyecto: '',
-    viviendaTipo: '',
-    viviendaValor: '',
-    viviendaCuotaInicial: '',
-    viviendaModalidad: '',
-    viviendaVIS: '',
-    viviendaUbicacion: ''
+    nombresApellidos: "",
+    dni: "",
+    edad: "",
+    ingresoFamiliar: "",
+    estadoCivil: "",
+    viviendaProyecto: "",
+    viviendaTipo: "",
+    viviendaValor: "",
+    viviendaCuotaInicial: "",
+    viviendaModalidad: "",
+    viviendaVIS: "",
+    viviendaUbicacion: ""
   };
 }
 
-// Watch
-watch(() => props.cliente, (newCliente) => {
-  if (newCliente && props.isEdit) {
-    form.value = {
-      nombresApellidos: newCliente.nombresApellidos || '',
-      dni: newCliente.dni || '',
-      edad: newCliente.edad || null,
-      ingresoFamiliar: newCliente.ingresoFamiliar || 0,
-      aporte: newCliente.aporte || 0,
-      estadoCivil: newCliente.estadoCivil || '',
-      tieneDiscapacidad: newCliente.tieneDiscapacidad || false,
-      esMigranteRetornado: newCliente.esMigranteRetornado || false,
-      esPersonaDesplazada: newCliente.esPersonaDesplazada || false,
-      vivienda: {
-        proyecto: newCliente.vivienda?.proyecto || '',
-        tipoVivienda: newCliente.vivienda?.tipoVivienda || '',
-        valorVivienda: newCliente.vivienda?.valorVivienda || 0,
-        modalidadVivienda: newCliente.vivienda?.modalidadVivienda || '',
-        cuotaInicial: newCliente.vivienda?.cuotaInicial || 0,
-        cuotaInicialPorcentaje: newCliente.vivienda?.cuotaInicialPorcentaje || 0,
-        tipoVIS: newCliente.vivienda?.tipoVIS || '',
-        ubicacion: newCliente.vivienda?.ubicacion || ''
+watch(
+    () => props.cliente,
+    (c) => {
+      if (c && props.isEdit) {
+        // Copiamos solo lo que necesitamos
+        form.value = {
+          nombresApellidos: c.nombresApellidos ?? "",
+          dni: c.dni ?? "",
+          edad: c.edad ?? null,
+          ingresoFamiliar: c.ingresoFamiliar ?? 0,
+          estadoCivil: c.estadoCivil ?? "Soltero",
+          tieneDiscapacidad: !!c.tieneDiscapacidad,
+          esMigranteRetornado: !!c.esMigranteRetornado,
+          esPersonaDesplazada: !!c.esPersonaDesplazada,
+          vivienda: {
+            proyecto: c.vivienda?.proyecto ?? "",
+            tipoVivienda: c.vivienda?.tipoVivienda ?? "",
+            valorVivienda: c.vivienda?.valorVivienda ?? 0,
+            modalidadVivienda: c.vivienda?.modalidadVivienda ?? "",
+            cuotaInicial: c.vivienda?.cuotaInicial ?? 0,
+            cuotaInicialPorcentaje: c.vivienda?.cuotaInicialPorcentaje ?? 0,
+            tipoVIS: c.vivienda?.tipoVIS ?? "",
+            ubicacion: c.vivienda?.ubicacion ?? ""
+          }
+        };
+      } else {
+        resetForm();
       }
-    };
-  } else {
-    resetForm();
-  }
-  resetErrors();
-}, { immediate: true });
+      resetErrors();
+    },
+    { immediate: true }
+);
 
-// Métodos de validación y manejo
-function handleDniInput(event) {
-  const value = event.target.value;
-  form.value.dni = value.replace(/[^0-9]/g, '').substring(0, 8);
+/* ===========================================================
+   DNI solo números y 8 dígitos
+   =========================================================== */
+function handleDniInput(e) {
+  form.value.dni = e.target.value.replace(/[^0-9]/g, "").substring(0, 8);
 }
 
+/* ===========================================================
+   CUOTA INICIAL: SINCRONIZAR PORCENTAJE ↔ MONTO
+   =========================================================== */
+function recalcularCuotaDesdePorcentaje() {
+  const valor = Number(form.value.vivienda.valorVivienda) || 0;
+  let porcentaje = Number(form.value.vivienda.cuotaInicialPorcentaje) || 0;
+
+  const config = visConfig[form.value.vivienda.tipoVIS];
+
+  if (config?.mode === "range") {
+    if (porcentaje < config.min) porcentaje = config.min;
+    if (porcentaje > config.max) porcentaje = config.max;
+    form.value.vivienda.cuotaInicialPorcentaje = porcentaje;
+  }
+
+  if (valor > 0 && porcentaje >= 0) {
+    form.value.vivienda.cuotaInicial = Number(
+        (valor * (porcentaje / 100)).toFixed(2)
+    );
+  } else {
+    form.value.vivienda.cuotaInicial = 0;
+  }
+}
+
+function recalcularPorcentajeDesdeCuota() {
+  const valor = Number(form.value.vivienda.valorVivienda) || 0;
+  const cuota = Number(form.value.vivienda.cuotaInicial) || 0;
+
+  if (valor > 0 && cuota >= 0) {
+    form.value.vivienda.cuotaInicialPorcentaje = Number(
+        ((cuota * 100) / valor).toFixed(2)
+    );
+  } else {
+    form.value.vivienda.cuotaInicialPorcentaje = 0;
+  }
+}
+
+/* Si cambia el valor de la vivienda, recalculamos cuota */
+watch(
+    () => form.value.vivienda.valorVivienda,
+    () => {
+      recalcularCuotaDesdePorcentaje();
+    }
+);
+
+/* Cuando cambia el tipo de VIS, aplicamos regla */
+watch(
+    () => form.value.vivienda.tipoVIS,
+    (nuevoTipo) => {
+      const config = visConfig[nuevoTipo];
+
+      if (!config) {
+        porcentajeBloqueado.value = false;
+        return;
+      }
+
+      if (config.mode === "fixed") {
+        porcentajeBloqueado.value = !config.editable;
+        form.value.vivienda.cuotaInicialPorcentaje = config.value;
+        recalcularCuotaDesdePorcentaje();
+      } else if (config.mode === "range") {
+        porcentajeBloqueado.value = !config.editable;
+        // si está en 0, lo ponemos en el mínimo
+        if (
+            !form.value.vivienda.cuotaInicialPorcentaje ||
+            form.value.vivienda.cuotaInicialPorcentaje < config.min
+        ) {
+          form.value.vivienda.cuotaInicialPorcentaje = config.min;
+        }
+        recalcularCuotaDesdePorcentaje();
+      }
+    }
+);
+
+/* ===========================================================
+   VALIDACIÓN SIMPLE
+   =========================================================== */
 function validateForm() {
-  let isValid = true;
+  let valid = true;
   resetErrors();
 
-  // Validar datos del cliente
-  if (!form.value.nombresApellidos || form.value.nombresApellidos.trim() === '') {
-    errors.value.nombresApellidos = 'El nombre y apellidos es requerido';
-    isValid = false;
-  } else if (form.value.nombresApellidos.trim().length < 3) {
-    errors.value.nombresApellidos = 'Debe tener al menos 3 caracteres';
-    isValid = false;
+  if (!form.value.nombresApellidos.trim()) {
+    errors.value.nombresApellidos = "El nombre es requerido";
+    valid = false;
   }
 
-  if (!form.value.dni) {
-    errors.value.dni = 'El DNI es requerido';
-    isValid = false;
-  } else if (form.value.dni.length !== 8) {
-    errors.value.dni = 'El DNI debe tener exactamente 8 dígitos';
-    isValid = false;
+  if (!form.value.dni || form.value.dni.length !== 8) {
+    errors.value.dni = "DNI inválido (8 dígitos)";
+    valid = false;
   }
 
-  if (!form.value.edad || form.value.edad < 18 || form.value.edad > 100) {
-    errors.value.edad = 'La edad debe estar entre 18 y 100 años';
-    isValid = false;
+  if (!form.value.edad || form.value.edad < 18) {
+    errors.value.edad = "Edad inválida (mayor o igual a 18)";
+    valid = false;
   }
 
   if (!form.value.ingresoFamiliar || form.value.ingresoFamiliar <= 0) {
-    errors.value.ingresoFamiliar = 'El ingreso familiar debe ser mayor a 0';
-    isValid = false;
-  }
-
-  if (!form.value.aporte || form.value.aporte <= 0) {
-    errors.value.aporte = 'El aporte debe ser mayor a 0';
-    isValid = false;
+    errors.value.ingresoFamiliar = "El ingreso familiar debe ser mayor a 0";
+    valid = false;
   }
 
   if (!form.value.estadoCivil) {
-    errors.value.estadoCivil = 'El estado civil es requerido';
-    isValid = false;
+    errors.value.estadoCivil = "El estado civil es requerido";
+    valid = false;
   }
 
-  // Validar datos de vivienda
-  if (!form.value.vivienda.proyecto || form.value.vivienda.proyecto.trim() === '') {
-    errors.value.viviendaProyecto = 'El proyecto es requerido';
-    isValid = false;
+  // Vivienda
+  if (!form.value.vivienda.proyecto.trim()) {
+    errors.value.viviendaProyecto = "El proyecto es requerido";
+    valid = false;
   }
 
-  if (!form.value.vivienda.tipoVivienda) {
-    errors.value.viviendaTipo = 'El tipo de vivienda es requerido';
-    isValid = false;
+  if (!form.value.vivienda.tipoVivienda.trim()) {
+    errors.value.viviendaTipo = "El tipo de vivienda es requerido";
+    valid = false;
   }
 
   if (!form.value.vivienda.valorVivienda || form.value.vivienda.valorVivienda <= 0) {
-    errors.value.viviendaValor = 'El valor debe ser mayor a 0';
-    isValid = false;
+    errors.value.viviendaValor = "El valor de la vivienda debe ser mayor a 0";
+    valid = false;
   }
 
-  if (!form.value.vivienda.cuotaInicial || form.value.vivienda.cuotaInicial < 0) {
-    errors.value.viviendaCuotaInicial = 'La cuota inicial debe ser mayor o igual a 0';
-    isValid = false;
-  }
-
-  if (!form.value.vivienda.modalidadVivienda) {
-    errors.value.viviendaModalidad = 'La modalidad de vivienda es requerida';
-    isValid = false;
+  if (!form.value.vivienda.modalidadVivienda.trim()) {
+    errors.value.viviendaModalidad = "La modalidad de vivienda es requerida";
+    valid = false;
   }
 
   if (!form.value.vivienda.tipoVIS) {
-    errors.value.viviendaVIS = 'El tipo de VIS es requerido';
-    isValid = false;
+    errors.value.viviendaVIS = "El tipo de VIS es requerido";
+    valid = false;
   }
 
-  if (!form.value.vivienda.ubicacion || form.value.vivienda.ubicacion.trim() === '') {
-    errors.value.viviendaUbicacion = 'La ubicación es requerida';
-    isValid = false;
+  if (!form.value.vivienda.ubicacion.trim()) {
+    errors.value.viviendaUbicacion = "La ubicación es requerida";
+    valid = false;
   }
 
-  return isValid;
+  // Validar porcentaje según tipo de VIS
+  const config = visConfig[form.value.vivienda.tipoVIS];
+  const porcentaje = Number(form.value.vivienda.cuotaInicialPorcentaje) || 0;
+
+  if (config?.mode === "range") {
+    if (porcentaje < config.min || porcentaje > config.max) {
+      errors.value.viviendaCuotaInicial = `El porcentaje debe estar entre ${config.min}% y ${config.max}%`;
+      valid = false;
+    }
+  }
+
+  return valid;
 }
 
+/* ===========================================================
+   GUARDAR / CERRAR
+   =========================================================== */
 function handleSubmit() {
-  if (validateForm()) {
-    emit('save', { ...form.value });
-  }
+  if (!validateForm()) return;
+
+  recalcularPorcentajeDesdeCuota();
+  recalcularCuotaDesdePorcentaje();
+
+  emit("save", { ...form.value });
 }
+
 
 function handleClose() {
-  emit('update:visible', false);
+  emit("update:visible", false);
   setTimeout(() => {
     resetForm();
     resetErrors();
@@ -266,13 +396,15 @@ function handleClose() {
       :visible="visible"
       :style="{ width: '900px', maxHeight: '90vh' }"
       :header="isEdit ? 'Editar Cliente' : 'Nuevo Cliente'"
-      :modal="true"
+      modal
       class="cliente-dialog"
       :contentStyle="{ overflow: 'auto' }"
       @update:visible="handleClose"
   >
     <div class="form-container p-fluid">
-      <!-- SECCIÓN: DATOS DEL CLIENTE -->
+      <!-- ============================ -->
+      <!--   DATOS DEL CLIENTE          -->
+      <!-- ============================ -->
       <div class="section-header mb-4">
         <div class="section-title-wrapper">
           <i class="pi pi-user section-icon"></i>
@@ -281,166 +413,154 @@ function handleClose() {
       </div>
 
       <div class="grid">
-        <!-- Fila 1: Nombres y Estado Civil -->
+        <!-- Nombres -->
         <div class="col-12 md:col-6">
-          <label for="nombresApellidos" class="form-label">Nombres y Apellidos</label>
+          <label class="form-label">Nombres y Apellidos</label>
           <InputText
-              id="nombresApellidos"
               v-model="form.nombresApellidos"
               :class="{ 'p-invalid': errors.nombresApellidos }"
-              placeholder="Ingrese nombres y apellidos"
-              class="w-full"
+              placeholder="Ingresar nombre completo"
           />
           <small v-if="errors.nombresApellidos" class="p-error">
             {{ errors.nombresApellidos }}
           </small>
         </div>
 
+        <!-- Estado civil -->
         <div class="col-12 md:col-6">
-          <label for="estadoCivil" class="form-label">Estado Civil</label>
+          <label class="form-label">Estado Civil</label>
           <Dropdown
-              id="estadoCivil"
               v-model="form.estadoCivil"
               :options="estadosCiviles"
               optionLabel="label"
               optionValue="value"
-              placeholder="Seleccione estado civil"
-              :class="{ 'p-invalid': errors.estadoCivil }"
               class="w-full"
               appendTo="body"
-              :panelStyle="{ zIndex: 10000 }"
+              :class="{ 'p-invalid': errors.estadoCivil }"
           />
           <small v-if="errors.estadoCivil" class="p-error">
             {{ errors.estadoCivil }}
           </small>
         </div>
 
-        <!-- Fila 2: DNI e Ingreso Familiar -->
+        <!-- DNI -->
         <div class="col-12 md:col-6">
-          <label for="dni" class="form-label">DNI</label>
+          <label class="form-label">DNI</label>
           <InputText
-              id="dni"
               v-model="form.dni"
-              :class="{ 'p-invalid': errors.dni }"
-              placeholder="Ingrese DNI (8 dígitos)"
               maxlength="8"
               @input="handleDniInput"
+              :class="{ 'p-invalid': errors.dni }"
+              placeholder="8 dígitos"
           />
           <small v-if="errors.dni" class="p-error">
             {{ errors.dni }}
           </small>
         </div>
 
+        <!-- Ingreso Familiar -->
         <div class="col-12 md:col-6">
-          <label for="ingresoFamiliar" class="form-label">Ingreso Familiar (S/.)</label>
+          <label class="form-label">Ingreso Familiar (S/.)</label>
           <InputText
-              id="ingresoFamiliar"
               v-model="form.ingresoFamiliar"
               type="number"
-              :class="{ 'p-invalid': errors.ingresoFamiliar }"
               placeholder="0.00"
+              :class="{ 'p-invalid': errors.ingresoFamiliar }"
           />
           <small v-if="errors.ingresoFamiliar" class="p-error">
             {{ errors.ingresoFamiliar }}
           </small>
         </div>
 
-        <!-- Fila 3: Edad, Discapacidad, Migrante, Desplazado -->
+        <!-- Edad -->
         <div class="col-12 md:col-3">
-          <label for="edad" class="form-label">Edad</label>
+          <label class="form-label">Edad</label>
           <InputText
-              id="edad"
               v-model="form.edad"
               type="number"
-              :class="{ 'p-invalid': errors.edad }"
               placeholder="XX"
+              :class="{ 'p-invalid': errors.edad }"
           />
           <small v-if="errors.edad" class="p-error">
             {{ errors.edad }}
           </small>
         </div>
 
+        <!-- Radios: Discapacidad -->
         <div class="col-12 md:col-3">
           <label class="form-label">¿Tiene discapacidad?</label>
           <div class="radio-group">
             <div class="radio-option">
               <RadioButton
-                  id="discapacidad_si"
                   v-model="form.tieneDiscapacidad"
                   :value="true"
                   class="radio-custom"
               />
-              <label for="discapacidad_si" class="radio-label">Sí</label>
+              <label class="radio-label">Sí</label>
             </div>
             <div class="radio-option">
               <RadioButton
-                  id="discapacidad_no"
                   v-model="form.tieneDiscapacidad"
                   :value="false"
                   class="radio-custom"
               />
-              <label for="discapacidad_no" class="radio-label">No</label>
+              <label class="radio-label">No</label>
             </div>
           </div>
         </div>
 
+        <!-- Radios: Migrante -->
         <div class="col-12 md:col-3">
           <label class="form-label">¿Migrante retornado?</label>
           <div class="radio-group">
             <div class="radio-option">
               <RadioButton
-                  id="migrante_si"
                   v-model="form.esMigranteRetornado"
                   :value="true"
                   class="radio-custom"
               />
-              <label for="migrante_si" class="radio-label">Sí</label>
+              <label class="radio-label">Sí</label>
             </div>
             <div class="radio-option">
               <RadioButton
-                  id="migrante_no"
                   v-model="form.esMigranteRetornado"
                   :value="false"
                   class="radio-custom"
               />
-              <label for="migrante_no" class="radio-label">No</label>
+              <label class="radio-label">No</label>
             </div>
           </div>
         </div>
 
+        <!-- Radios: Desplazada -->
         <div class="col-12 md:col-3">
           <label class="form-label">¿Persona desplazada?</label>
           <div class="radio-group">
             <div class="radio-option">
               <RadioButton
-                  id="desplazada_si"
                   v-model="form.esPersonaDesplazada"
                   :value="true"
                   class="radio-custom"
               />
-              <label for="desplazada_si" class="radio-label">Sí</label>
+              <label class="radio-label">Sí</label>
             </div>
             <div class="radio-option">
               <RadioButton
-                  id="desplazada_no"
                   v-model="form.esPersonaDesplazada"
                   :value="false"
                   class="radio-custom"
               />
-              <label for="desplazada_no" class="radio-label">No</label>
+              <label class="radio-label">No</label>
             </div>
           </div>
-        </div>
-
-        <!-- Campo aporte oculto -->
-        <div style="display: none;">
-          <InputNumber v-model="form.aporte" />
         </div>
       </div>
 
       <Divider class="my-4" />
 
-      <!-- SECCIÓN: DATOS DE LA VIVIENDA -->
+      <!-- ============================ -->
+      <!--    DATOS DE LA VIVIENDA     -->
+      <!-- ============================ -->
       <div class="section-header mb-4">
         <div class="section-title-wrapper">
           <i class="pi pi-home section-icon"></i>
@@ -449,38 +569,36 @@ function handleClose() {
       </div>
 
       <div class="grid">
-        <!-- Fila 1: Proyecto y Tipo de Vivienda -->
+        <!-- Proyecto -->
         <div class="col-12 md:col-6">
-          <label for="proyecto" class="form-label">Proyecto/Nombre de la Vivienda</label>
+          <label class="form-label">Proyecto / Nombre de la Vivienda</label>
           <InputText
-              id="proyecto"
               v-model="form.vivienda.proyecto"
               :class="{ 'p-invalid': errors.viviendaProyecto }"
-              placeholder="Ingrese proyecto"
+              placeholder="Ej: Residencial Mirador Azul"
           />
           <small v-if="errors.viviendaProyecto" class="p-error">
             {{ errors.viviendaProyecto }}
           </small>
         </div>
 
+        <!-- Tipo vivienda -->
         <div class="col-12 md:col-6">
-          <label for="tipoVivienda" class="form-label">Tipo de Vivienda</label>
+          <label class="form-label">Tipo de Vivienda</label>
           <InputText
-              id="tipoVivienda"
               v-model="form.vivienda.tipoVivienda"
               :class="{ 'p-invalid': errors.viviendaTipo }"
-              placeholder="Casa, Departamento, etc."
+              placeholder="Departamento, Conjunto Residencial, Lote, etc."
           />
           <small v-if="errors.viviendaTipo" class="p-error">
             {{ errors.viviendaTipo }}
           </small>
         </div>
 
-        <!-- Fila 2: Valor de Vivienda y Modalidad -->
+        <!-- Valor vivienda -->
         <div class="col-12 md:col-6">
-          <label for="valorVivienda" class="form-label">Valor de la vivienda (s/.)</label>
+          <label class="form-label">Valor de la Vivienda (S/.)</label>
           <InputText
-              id="valorVivienda"
               v-model="form.vivienda.valorVivienda"
               type="number"
               :class="{ 'p-invalid': errors.viviendaValor }"
@@ -491,44 +609,46 @@ function handleClose() {
           </small>
         </div>
 
+        <!-- Modalidad -->
         <div class="col-12 md:col-6">
-          <label for="modalidad" class="form-label">Modalidad de Vivienda</label>
+          <label class="form-label">Modalidad de Vivienda</label>
           <Dropdown
-              id="modalidad"
               v-model="form.vivienda.modalidadVivienda"
-              :options="modalidadesVivienda"
-              optionLabel="label"
-              optionValue="value"
-              placeholder="Seleccionar el tipo de vivienda"
-              :class="{ 'p-invalid': errors.viviendaModalidad }"
+              :options="[
+      'Adquisición de Vivienda',
+      'Construcción en Sitio Propio',
+      'Mejoramiento de Vivienda'
+    ]"
+              placeholder="Seleccionar modalidad..."
               class="w-full"
+              :class="{ 'p-invalid': errors.viviendaModalidad }"
               appendTo="body"
-              :panelStyle="{ zIndex: 10000 }"
           />
+
           <small v-if="errors.viviendaModalidad" class="p-error">
             {{ errors.viviendaModalidad }}
           </small>
         </div>
 
-        <!-- Fila 3: Cuota Inicial -->
+        <!-- Cuota inicial -->
         <div class="col-12 md:col-6">
-          <label for="cuotaInicial" class="form-label">¿Cuánto darás de cuota inicial? (S/.)</label>
+          <label class="form-label">¿Cuánto dará de cuota inicial? (S/.)</label>
           <div class="cuota-input-group">
             <InputText
-                id="porcentaje"
                 v-model="form.vivienda.cuotaInicialPorcentaje"
                 type="number"
-                placeholder="XX%"
+                placeholder="%"
                 class="cuota-percentage"
-                :max="100"
+                :disabled="porcentajeBloqueado"
+                @input="recalcularCuotaDesdePorcentaje"
             />
             <InputText
-                id="cuotaInicial"
                 v-model="form.vivienda.cuotaInicial"
                 type="number"
+                class="cuota-amount"
                 :class="{ 'p-invalid': errors.viviendaCuotaInicial }"
                 placeholder="0.00"
-                class="cuota-amount"
+                @input="recalcularPorcentajeDesdeCuota"
             />
           </div>
           <small v-if="errors.viviendaCuotaInicial" class="p-error">
@@ -536,33 +656,30 @@ function handleClose() {
           </small>
         </div>
 
+        <!-- Tipo VIS -->
         <div class="col-12 md:col-6">
-          <label for="tipoVIS" class="form-label">Tipo de VIS</label>
+          <label class="form-label">Tipo de VIS</label>
           <Dropdown
-              id="tipoVIS"
               v-model="form.vivienda.tipoVIS"
               :options="tiposVIS"
               optionLabel="label"
               optionValue="value"
-              placeholder="Seleccionar el tipo de VIS"
-              :class="{ 'p-invalid': errors.viviendaVIS }"
-              class="w-full"
               appendTo="body"
-              :panelStyle="{ zIndex: 10000 }"
+              class="w-full"
+              :class="{ 'p-invalid': errors.viviendaVIS }"
           />
           <small v-if="errors.viviendaVIS" class="p-error">
             {{ errors.viviendaVIS }}
           </small>
         </div>
 
-        <!-- Fila 4: Ubicación -->
+        <!-- Ubicación -->
         <div class="col-12">
-          <label for="ubicacion" class="form-label">Ubicacion</label>
+          <label class="form-label">Ubicación</label>
           <InputText
-              id="ubicacion"
               v-model="form.vivienda.ubicacion"
               :class="{ 'p-invalid': errors.viviendaUbicacion }"
-              placeholder="Ej: San Isidro, Lima"
+              placeholder="Ej: Ate, Lima"
           />
           <small v-if="errors.viviendaUbicacion" class="p-error">
             {{ errors.viviendaUbicacion }}
@@ -571,6 +688,7 @@ function handleClose() {
       </div>
     </div>
 
+    <!-- FOOTER -->
     <template #footer>
       <div class="flex justify-content-between gap-2">
         <Button
@@ -673,7 +791,6 @@ function handleClose() {
 
 .radio-custom {
   cursor: pointer;
-  accent-color: #059669;
   flex-shrink: 0;
 }
 
