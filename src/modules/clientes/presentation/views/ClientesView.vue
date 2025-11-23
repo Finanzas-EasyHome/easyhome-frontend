@@ -16,11 +16,13 @@ const {
   searchQuery,
   totalClientes,
   fetchClientes,
+  fetchClienteById,
   addCliente,
   modifyCliente,
   removeCliente,
   setSearchQuery
 } = useClientes();
+
 
 // State
 const selectedClientes = ref([]);
@@ -49,10 +51,8 @@ const openCreateDialog = () => {
 };
 
 const openEditDialog = async (cliente) => {
-  // 1. Obtener cliente con vivienda desde Supabase
   const data = await fetchClienteById(cliente.id);
 
-  // 2. Reconstruimos el objeto con la estructura que espera ClienteDialog
   selectedCliente.value = {
     id: data.id,
     nombresApellidos: data.nombresApellidos,
@@ -65,20 +65,21 @@ const openEditDialog = async (cliente) => {
     esPersonaDesplazada: data.esPersonaDesplazada,
 
     vivienda: {
-      proyecto: data.proyecto,
-      tipoVivienda: data.tipo_vivienda,
-      valorVivienda: data.valor_vivienda,
-      modalidadVivienda: data.modalidad_vivienda,
-      cuotaInicial: data.valor_vivienda * (data.porcentaje_cuota_inicial / 100),
-      cuotaInicialPorcentaje: data.porcentaje_cuota_inicial,
-      tipoVIS: data.tipo_vis,
-      ubicacion: data.ubicacion
+      proyecto: data.vivienda.proyecto,
+      tipoVivienda: data.vivienda.tipoVivienda,
+      valorVivienda: data.vivienda.valorVivienda,
+      modalidadVivienda: data.vivienda.modalidadVivienda,
+      cuotaInicial: data.vivienda.cuotaInicial,
+      cuotaInicialPorcentaje: data.vivienda.cuotaInicialPorcentaje,
+      tipoVIS: data.vivienda.tipoVIS,
+      ubicacion: data.vivienda.ubicacion
     }
   };
 
   isEditMode.value = true;
   dialogVisible.value = true;
 };
+
 
 
 const openDetailDialog = (cliente) => {

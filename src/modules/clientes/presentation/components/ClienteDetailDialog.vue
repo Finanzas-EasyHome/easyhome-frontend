@@ -1,3 +1,34 @@
+<script setup>
+import { computed } from "vue";
+
+const props = defineProps({
+  visible: Boolean,
+  cliente: Object,
+});
+
+const emit = defineEmits(["update:visible"]);
+
+const handleClose = () => {
+  emit("update:visible", false);
+};
+
+const formatCurrency = (value) => {
+  if (!value || isNaN(value)) return "0.00";
+
+  return new Intl.NumberFormat("es-PE", {
+    style: "currency",
+    currency: "PEN",
+    minimumFractionDigits: 2,
+  }).format(Number(value));
+};
+
+
+const formatBoolean = (val) => (val ? "Sí" : "No");
+
+// 🟢 Badge color
+const statusBadge = (value) => (value ? "badge-success" : "badge-danger");
+</script>
+
 <template>
   <Dialog
       :visible="visible"
@@ -170,27 +201,10 @@
             </div>
           </div>
 
-          <div class="col-12 md:col-6"></div>
-
           <div class="col-12">
             <div class="detail-item">
               <span class="detail-label">Ubicación:</span>
               <span class="detail-value">{{ cliente.vivienda.ubicacion }}</span>
-            </div>
-          </div>
-
-          <div class="col-12">
-            <div class="financial-summary">
-              <div class="summary-item">
-                <span class="summary-label">Monto a Financiar:</span>
-                <span class="summary-value">
-                  {{
-                    formatCurrency(
-                        cliente.vivienda.valorVivienda - cliente.vivienda.cuotaInicial
-                    )
-                  }}
-                </span>
-              </div>
             </div>
           </div>
 

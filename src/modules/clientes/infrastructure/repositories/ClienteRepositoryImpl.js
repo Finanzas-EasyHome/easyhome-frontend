@@ -10,17 +10,17 @@ export class ClienteRepositoryImpl extends ClienteRepository {
         const { data, error } = await supabase
             .from("clientes_techo_propio")
             .select(`
-                *,
-                vivienda:vivienda_techo_propio (
-                    proyecto,
-                    tipo_vivienda,
-                    valor_vivienda,
-                    modalidad_vivienda,
-                    porcentaje_cuota_inicial,
-                    tipo_vis,
-                    ubicacion
-                )
-            `);
+            *,
+            vivienda:vivienda_techo_propio!fk_cliente (
+                proyecto,
+                tipo_vivienda,
+                valor_vivienda,
+                modalidad_vivienda,
+                porcentaje_cuota_inicial,
+                tipo_vis,
+                ubicacion
+            )
+        `);
 
         if (error) throw new Error("Error al obtener clientes");
 
@@ -35,11 +35,10 @@ export class ClienteRepositoryImpl extends ClienteRepository {
             esMigranteRetornado: c.migrante_retornado,
             esPersonaDesplazada: c.persona_desplazada,
 
-            // 🟢 Aporte calculado
             aporte: c.vivienda
-                ? Number(c.vivienda.valor_vivienda) * (Number(c.vivienda.porcentaje_cuota_inicial) / 100)
+                ? Number(c.vivienda.valor_vivienda || 0) *
+                (Number(c.vivienda.porcentaje_cuota_inicial || 0) / 100)
                 : 0,
-
 
             vivienda: c.vivienda
                 ? {
@@ -48,7 +47,6 @@ export class ClienteRepositoryImpl extends ClienteRepository {
                     valorVivienda: c.vivienda.valor_vivienda,
                     modalidadVivienda: c.vivienda.modalidad_vivienda,
                     cuotaInicial: Number(c.vivienda.valor_vivienda) * (Number(c.vivienda.porcentaje_cuota_inicial) / 100),
-
                     cuotaInicialPorcentaje: c.vivienda.porcentaje_cuota_inicial,
                     tipoVIS: c.vivienda.tipo_vis,
                     ubicacion: c.vivienda.ubicacion,
@@ -57,24 +55,21 @@ export class ClienteRepositoryImpl extends ClienteRepository {
         }));
     }
 
-    // ============================================================
-    //  BUSCAR CLIENTE POR ID (JOIN 1 → 1)
-    // ============================================================
     async findById(id) {
         const { data, error } = await supabase
             .from("clientes_techo_propio")
             .select(`
-                *,
-                vivienda:vivienda_techo_propio (
-                    proyecto,
-                    tipo_vivienda,
-                    valor_vivienda,
-                    modalidad_vivienda,
-                    porcentaje_cuota_inicial,
-                    tipo_vis,
-                    ubicacion
-                )
-            `)
+            *,
+            vivienda:vivienda_techo_propio!fk_cliente (
+                proyecto,
+                tipo_vivienda,
+                valor_vivienda,
+                modalidad_vivienda,
+                porcentaje_cuota_inicial,
+                tipo_vis,
+                ubicacion
+            )
+        `)
             .eq("id", id)
             .maybeSingle();
 
@@ -91,8 +86,9 @@ export class ClienteRepositoryImpl extends ClienteRepository {
             esMigranteRetornado: data.migrante_retornado,
             esPersonaDesplazada: data.persona_desplazada,
 
-            aporte: data.vivienda
-                ? Number(data.vivienda.valor_vivienda) * (Number(data.vivienda.porcentaje_cuota_inicial) / 100)
+            aaporte: c.vivienda
+                ? Number(c.vivienda.valor_vivienda || 0) *
+                (Number(c.vivienda.porcentaje_cuota_inicial || 0) / 100)
                 : 0,
 
             vivienda: data.vivienda
@@ -102,7 +98,6 @@ export class ClienteRepositoryImpl extends ClienteRepository {
                     valorVivienda: data.vivienda.valor_vivienda,
                     modalidadVivienda: data.vivienda.modalidad_vivienda,
                     cuotaInicial: Number(data.vivienda.valor_vivienda) * (Number(data.vivienda.porcentaje_cuota_inicial) / 100),
-
                     cuotaInicialPorcentaje: data.vivienda.porcentaje_cuota_inicial,
                     tipoVIS: data.vivienda.tipo_vis,
                     ubicacion: data.vivienda.ubicacion,
@@ -110,6 +105,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
                 : null
         };
     }
+
 
     // ============================================================
     //  CREAR CLIENTE + VIVIENDA
@@ -161,8 +157,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
     //  ACTUALIZAR CLIENTE + VIVIENDA
     // ============================================================
     async update(id, cliente) {
-
-        // 1️⃣ Actualizar cliente
+        // 1. actualizar cliente
         const { error } = await supabase
             .from("clientes_techo_propio")
             .update({
@@ -180,9 +175,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
 
         if (error) throw new Error("Error al actualizar cliente");
 
-        // 2️⃣ Actualizar vivienda
-        const nuevoPorcentaje = (cliente.vivienda.cuotaInicial / cliente.vivienda.valorVivienda) * 100;
-
+        // 2. actualizar vivienda
         await supabase
             .from("vivienda_techo_propio")
             .update({
@@ -190,7 +183,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
                 tipo_vivienda: cliente.vivienda.tipoVivienda,
                 valor_vivienda: cliente.vivienda.valorVivienda,
                 modalidad_vivienda: cliente.vivienda.modalidadVivienda,
-                porcentaje_cuota_inicial: nuevoPorcentaje,
+                porcentaje_cuota_inicial: cliente.vivienda.cuotaInicialPorcentaje,
                 tipo_vis: cliente.vivienda.tipoVIS,
                 ubicacion: cliente.vivienda.ubicacion,
                 fecha_actualizacion: new Date()
@@ -199,6 +192,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
 
         return true;
     }
+
 
     // ============================================================
     //  ELIMINAR CLIENTE (CASCADE)
