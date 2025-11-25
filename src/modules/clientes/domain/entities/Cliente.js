@@ -38,14 +38,14 @@ export class Cliente {
         const cuota = Number(this.vivienda.cuotaInicial) || 0;
         const porcentaje = Number(this.vivienda.cuotaInicialPorcentaje) || 0;
 
-        // Si llegó porcentaje pero no monto → calcular monto
-        if (valor > 0 && porcentaje > 0 && cuota === 0) {
-            this.vivienda.cuotaInicial = Number((valor * (porcentaje / 100)).toFixed(2));
+        // Si hay cuotaInicial, calcular porcentaje
+        if (valor > 0 && cuota > 0) {
+            this.vivienda.cuotaInicialPorcentaje = Number(((cuota * 100) / valor).toFixed(2));
         }
 
-        // Si llegó monto pero no porcentaje → calcular porcentaje
-        if (valor > 0 && cuota > 0 && porcentaje === 0) {
-            this.vivienda.cuotaInicialPorcentaje = Number(((cuota * 100) / valor).toFixed(2));
+// Si hay porcentaje, calcular cuotaInicial
+        if (valor > 0 && porcentaje > 0) {
+            this.vivienda.cuotaInicial = Number((valor * (porcentaje / 100)).toFixed(2));
         }
 
         // Calcular aporte final

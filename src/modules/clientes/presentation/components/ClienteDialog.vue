@@ -103,7 +103,12 @@ const estadosCiviles = [
   { label: "Viudo/a", value: "Viudo" },
   { label: "Conviviente", value: "Conviviente" }
 ];
-
+const tiposVivienda = [
+  { label: "Departamento", value: "Departamento" },
+  { label: "Conjunto Residencial", value: "Conjunto Residencial" },
+  { label: "Vivienda Unifamiliar", value: "Vivienda Unifamiliar" },
+  { label: "Lote", value: "Lote" }
+];
 const tiposVIS = [
   {
     label: "VIS Priorizada en Lote Unifamiliar",
@@ -585,10 +590,15 @@ function handleClose() {
         <!-- Tipo vivienda -->
         <div class="col-12 md:col-6">
           <label class="form-label">Tipo de Vivienda</label>
-          <InputText
+          <Dropdown
               v-model="form.vivienda.tipoVivienda"
+              :options="tiposVivienda"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Seleccionar tipo de vivienda..."
+              class="w-full"
+              appendTo="body"
               :class="{ 'p-invalid': errors.viviendaTipo }"
-              placeholder="Departamento, Conjunto Residencial, Lote, etc."
           />
           <small v-if="errors.viviendaTipo" class="p-error">
             {{ errors.viviendaTipo }}

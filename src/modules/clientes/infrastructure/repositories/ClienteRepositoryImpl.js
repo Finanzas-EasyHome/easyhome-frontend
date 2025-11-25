@@ -79,7 +79,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
         if (error) throw new Error("Error al obtener cliente");
 
         return {
-            id: data.id,
+            id: data.vivienda.id,
             nombresApellidos: data.nombres_completos,
             dni: data.dni,
             edad: data.edad,
@@ -89,7 +89,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
             esMigranteRetornado: data.migrante_retornado,
             esPersonaDesplazada: data.persona_desplazada,
 
-            aaporte: data.vivienda
+            aporte: data.vivienda
                 ? Number(data.vivienda.valor_vivienda || 0) *
                 (Number(data.vivienda.porcentaje_cuota_inicial || 0) / 100)
                 : 0,
@@ -120,6 +120,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
                 dni: cliente.dni,
                 edad: cliente.edad,
                 ingreso_familiar: cliente.ingresoFamiliar,
+                aporte: cliente.aporte,
                 estado_civil: cliente.estadoCivil,
                 discapacidad: cliente.tieneDiscapacidad,
                 migrante_retornado: cliente.esMigranteRetornado,
@@ -163,6 +164,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
                 dni: cliente.dni,
                 edad: cliente.edad,
                 ingreso_familiar: cliente.ingresoFamiliar,
+                aporte: cliente.aporte,
                 estado_civil: cliente.estadoCivil,
                 discapacidad: cliente.tieneDiscapacidad,
                 migrante_retornado: cliente.esMigranteRetornado,
