@@ -5,8 +5,10 @@ import { useSimulador } from '../composables/useSimulador.js';
 import { useClientes } from '../../../clientes/presentation/composables/useClientes.js';
 import CostosAdicionalesDialog from '../components/CostosAdicionalesDialog.vue';
 import CronogramaDialog from '../components/CronogramaDialog.vue';
+import { SimuladorRepositoryImpl } from '../../infrastructure/repositories/SimuladorRepositoryImpl.js';
 
 const toast = useToast();
+const repository = new SimuladorRepositoryImpl();
 
 const {
   simulacionActual,
@@ -19,7 +21,9 @@ const {
   fetchEntidadesFinancieras,
   fetchProgramasVivienda,
   tieneSimulacion,
-  exportarCronograma
+  exportarCronograma,
+  // ✅ NUEVO: usamos el método que consulta Supabase
+  fetchTasasEntidad
 } = useSimulador();
 
 const { allClientes, fetchClientes } = useClientes();
@@ -35,6 +39,7 @@ const formData = ref({
   montoBono: 0,
   montoFinanciado: 0,
   fechaInicioPago: new Date(),
+  // ⚠️ Aquí se guarda el ID (uuid) de la entidad en Supabase
   entidadFinanciera: '',
   tipoTasa: 'TEA',
   tasaInteres: 0,
@@ -56,6 +61,24 @@ const cronogramaDialogVisible = ref(false);
 // Datos de la entidad financiera seleccionada
 const entidadSeleccionada = ref(null);
 const teaError = ref('');
+
+// ✅ NUEVO: aquí guardamos el rango de TEA que viene de Supabase
+const tasasEntidad = ref({
+  min: 0,
+  max: 0,
+  promedio: 0
+});
+
+// Helper: deducir el programa para Supabase
+const getProgramaKey = () => {
+  const raw = (formData.value.programaObjetivo || '').toLowerCase();
+
+  if (raw.includes('techo')) return 'techoPropio';
+  if (raw.includes('verde')) return 'miViviendaVerde';
+  if (raw.includes('convenc')) return 'convencional';
+  // por defecto usamos NCMV
+  return 'miVivienda';
+};
 
 // Computed
 const clientesOptions = computed(() =>
@@ -121,20 +144,60 @@ watch(() => formData.value.clienteId, async (newClienteId) => {
   }
 });
 
-watch(() => formData.value.entidadFinanciera, (newValue) => {
-  if (newValue) {
-    entidadSeleccionada.value = entidadesFinancieras.value.find(e => e.value === newValue);
+watch(
+    () => formData.value.entidadFinanciera,
+    async (newValue) => {
+      if (!newValue) {
+        entidadSeleccionada.value = null;
+        tasasEntidad.value = { min: 0, max: 0, promedio: 0 };
+        formData.value.tasaInteres = 0;
+        teaError.value = '';
+        return;
+      }
 
-    if (entidadSeleccionada.value && entidadSeleccionada.value.teaDefault) {
-      formData.value.tasaInteres = entidadSeleccionada.value.teaDefault;
-      validateTEA();
+      entidadSeleccionada.value =
+          entidadesFinancieras.value.find(e => e.value === newValue) || null;
+
+      try {
+        const programa = getProgramaKey();
+        const tasas = await fetchTasasEntidad(newValue, programa);
+        tasasEntidad.value = tasas;
+
+        if (tasas.promedio) {
+          formData.value.tasaInteres = tasas.promedio;
+        }
+
+        validateTEA();
+      } catch (err) {
+        console.error('Error al cargar tasas de entidad:', err);
+        tasasEntidad.value = { min: 0, max: 0, promedio: 0 };
+      }
     }
-  } else {
-    entidadSeleccionada.value = null;
-    formData.value.tasaInteres = 0;
-    teaError.value = '';
-  }
-});
+);
+
+watch(
+    () => formData.value.programaObjetivo,
+    async () => {
+      if (!formData.value.entidadFinanciera) return;
+
+      try {
+        const programa = getProgramaKey();
+        const tasas = await fetchTasasEntidad(
+            formData.value.entidadFinanciera,
+            programa
+        );
+        tasasEntidad.value = tasas;
+
+        if (tasas.promedio) {
+          formData.value.tasaInteres = tasas.promedio;
+        }
+
+        validateTEA();
+      } catch (err) {
+        console.error('Error al recalcular tasas por cambio de programa:', err);
+      }
+    }
+);
 
 watch(() => formData.value.tasaInteres, () => {
   validateTEA();
@@ -176,47 +239,53 @@ watch(() => formData.value.valorVivienda, () => {
 // Methods
 const cargarDatosCliente = async (clienteId) => {
   try {
-    const cliente = allClientes.value.find(c => c.id === clienteId);
+    // Consultamos cliente + vivienda desde Supabase
+    const info = await repository.getClienteConVivienda(clienteId);
 
-    if (!cliente) {
+    if (!info) {
       toast.add({
         severity: 'warn',
-        summary: 'Advertencia',
-        detail: 'No se encontró la información del cliente',
-        life: 3000
+        summary: 'Sin datos',
+        detail: 'Este cliente no tiene vivienda asociada.',
+        life: 2500
       });
       return;
     }
 
-    formData.value.clienteNombre = cliente.nombresApellidos;
-    formData.value.clienteId = cliente.id;
+    // ================================
+    //  CLIENTE
+    // ================================
+    formData.value.clienteNombre = `${info.nombres} ${info.apellidos}`;
+    formData.value.clienteId = info.id;
 
-    if (cliente.vivienda) {
-      if (cliente.vivienda.valorVivienda) {
-        formData.value.valorVivienda = parseFloat(cliente.vivienda.valorVivienda) || 0;
-      }
+    // ================================
+    //  VIVIENDA
+    // ================================
+    if (info.vivienda) {
+      const v = info.vivienda;
 
-      if (cliente.vivienda.cuotaInicial) {
-        formData.value.cuotaInicial = parseFloat(cliente.vivienda.cuotaInicial) || 0;
-      }
+      formData.value.valorVivienda = Number(v.valor_vivienda ?? 0);
+      formData.value.cuotaInicialPorcentaje = Number(v.porcentaje_cuota_inicial ?? 0);
+      formData.value.montoBono = Number(v.bono ?? 0);
 
-      if (cliente.vivienda.cuotaInicialPorcentaje) {
-        formData.value.cuotaInicialPorcentaje = parseFloat(cliente.vivienda.cuotaInicialPorcentaje) || 0;
-      }
+      // Calcular cuota inicial monto:
+      formData.value.cuotaInicial =
+          (formData.value.valorVivienda * formData.value.cuotaInicialPorcentaje) / 100;
 
-      if (cliente.vivienda.modalidadVivienda) {
-        formData.value.programaObjetivo = cliente.vivienda.modalidadVivienda;
-      } else if (cliente.vivienda.proyecto) {
-        formData.value.programaObjetivo = cliente.vivienda.proyecto;
-      }
+      // Calcular saldo a financiar:
+      formData.value.montoFinanciado =
+          formData.value.valorVivienda -
+          formData.value.cuotaInicial -
+          formData.value.montoBono;
+
+      // Programa objetivo:
+      formData.value.programaObjetivo = v.modalidad_vivienda || v.tipo_vis || "";
     }
-
-    updateMontoFinanciado();
 
     toast.add({
       severity: 'success',
       summary: 'Datos cargados',
-      detail: `Se cargaron los datos de ${cliente.nombresApellidos}`,
+      detail: `Datos de ${formData.value.clienteNombre} cargados correctamente`,
       life: 2000
     });
 
@@ -225,21 +294,28 @@ const cargarDatosCliente = async (clienteId) => {
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: 'Error al cargar los datos del cliente',
+      detail: 'No se pudo cargar la información del cliente',
       life: 3000
     });
   }
 };
 
+
 const validateTEA = () => {
-  if (!entidadSeleccionada.value || !formData.value.tasaInteres) {
+  if (!formData.value.tasaInteres) {
     teaError.value = '';
     return true;
   }
 
   const tea = parseFloat(formData.value.tasaInteres);
-  const min = entidadSeleccionada.value.teaMin;
-  const max = entidadSeleccionada.value.teaMax;
+  const min = tasasEntidad.value.min ?? 0;
+  const max = tasasEntidad.value.max ?? 0;
+
+  if (min === 0 && max === 0) {
+    // No tenemos rango, no validamos nada
+    teaError.value = '';
+    return true;
+  }
 
   if (tea < min) {
     teaError.value = `La TEA no puede ser menor a ${min}%`;
@@ -365,6 +441,7 @@ const handleLimpiar = () => {
   };
 
   entidadSeleccionada.value = null;
+  tasasEntidad.value = { min: 0, max: 0, promedio: 0 };
   teaError.value = '';
   limpiarSimulacion();
 
@@ -425,6 +502,7 @@ onMounted(async () => {
   await fetchProgramasVivienda();
 });
 </script>
+
 
 <template>
   <div class="simulador-view">
@@ -611,8 +689,8 @@ onMounted(async () => {
                 />
               </div>
               <small v-if="teaError" class="p-error">{{ teaError }}</small>
-              <small v-else-if="entidadSeleccionada" class="p-help">
-                Rango permitido: {{ entidadSeleccionada.teaMin }}% - {{ entidadSeleccionada.teaMax }}%
+              <small v-else-if="tasasEntidad.min && tasasEntidad.max" class="p-help">
+                Rango permitido: {{ tasasEntidad.min }}% - {{ tasasEntidad.max }}%
               </small>
             </div>
           </div>

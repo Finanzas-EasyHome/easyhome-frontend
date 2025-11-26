@@ -1,18 +1,17 @@
 // src/modules/simulador/infrastructure/repositories/SimuladorRepositoryImpl.js
 
-import axios from 'axios';
+import { supabase } from '/src/shared/infrastructure/supabase.js';
 import { SimuladorRepository } from '/src/modules/simulador/domain/repositories/SimuladorRepository.js';
+import { Simulacion } from '../../domain/entities/Simulacion';
 
 export class SimuladorRepositoryImpl extends SimuladorRepository {
     constructor() {
         super();
-        this.baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-        this.endpoint = `${this.baseUrl}/simulaciones`;
     }
 
-    /**
-     * Obtiene el ID del usuario actual
-     */
+    // ============================================================
+    // USUARIO ACTUAL
+    // ============================================================
     getCurrentUserId() {
         const userStr = localStorage.getItem('user');
         if (!userStr) {
@@ -20,318 +19,336 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
         }
         try {
             const user = JSON.parse(userStr);
+            // Ajusta esto si guardas el usuario de otra forma
             return user.id;
-        } catch (error) {
+        } catch (e) {
             throw new Error('Error al obtener usuario actual');
         }
     }
 
+    // ============================================================
+    // ENTIDADES FINANCIERAS
+    // ============================================================
     /**
-     * Guarda una simulación
+     * Lista de entidades financieras para el combo
+     */
+    async getEntidadesFinancieras() {
+        const { data, error } = await supabase
+            .from('entidades_financieras')
+            .select('id, nombre, tp_tea_min, tp_tea_max, ncmv_tea_min, ncmv_tea_max')
+            .order('nombre', { ascending: true });
+
+        if (error) {
+            console.error('Error al obtener entidades financieras', error);
+            throw new Error('No se pudieron cargar las entidades financieras');
+        }
+
+        // value/label para el select + rangos de TEA
+        return data.map((entidad) => ({
+            id: entidad.id,
+            value: entidad.id,          // usa el uuid como value
+            label: entidad.nombre,
+            tpTeaMin: Number(entidad.tp_tea_min ?? 0),
+            tpTeaMax: Number(entidad.tp_tea_max ?? 0),
+            ncmvTeaMin: Number(entidad.ncmv_tea_min ?? 0),
+            ncmvTeaMax: Number(entidad.ncmv_tea_max ?? 0),
+        }));
+    }
+
+    /**
+     * Obtiene el rango de tasas TEA de una entidad según programa.
+     * programa: 'techoPropio' | 'miVivienda' | 'miViviendaVerde' | 'convencional'
+     */
+    async getTasasEntidad(entidadId, programa = 'miVivienda') {
+        const { data, error } = await supabase
+            .from('entidades_financieras')
+            .select('tp_tea_min, tp_tea_max, ncmv_tea_min, ncmv_tea_max')
+            .eq('id', entidadId)
+            .single();
+
+        if (error) {
+            console.error('Error al obtener tasas de entidad', error);
+            throw new Error('No se pudo obtener la tasa de la entidad seleccionada');
+        }
+
+        const isTechoPropio = programa === 'techoPropio';
+
+        const min = isTechoPropio ? data.tp_tea_min : data.ncmv_tea_min;
+        const max = isTechoPropio ? data.tp_tea_max : data.ncmv_tea_max;
+
+        const minNum = Number(min ?? 0);
+        const maxNum = Number(max ?? 0);
+
+        return {
+            min: minNum,
+            max: maxNum,
+            promedio: Number(((minNum + maxNum) / 2).toFixed(4)),
+        };
+    }
+
+
+
+    async getCostosEntidad(entidadId) {
+        try {
+            const { data, error } = await supabase
+                .from("entidades_costos_adicionales")
+                .select("*")
+                .eq("entidad_id", entidadId)
+                .maybeSingle();
+
+            if (error) throw new Error(error.message);
+            if (!data) throw new Error("No existen costos para esta entidad.");
+
+            return {
+                seguroDesgravamen: {
+                    min: data.seguro_desgravamen_min,
+                    max: data.seguro_desgravamen_max
+                },
+                seguroInmueble: {
+                    min: data.seguro_inmueble_min,
+                    max: data.seguro_inmueble_max
+                },
+                tasacion: {
+                    min: data.tasacion_min,
+                    max: data.tasacion_max
+                },
+                gastosNotariales: {
+                    min: data.gastos_notariales_min,
+                    max: data.gastos_notariales_max
+                },
+                gastosRegistrales: {
+                    min: data.gastos_registrales_min,
+                    max: data.gastos_registrales_max
+                },
+                cargosAdministrativos: {
+                    min: data.cargos_admin_min,
+                    max: data.cargos_admin_max
+                },
+                comisionDesembolso: Number(data.comision_envio ?? 0)
+            };
+
+        } catch (err) {
+            console.error("Error getCostosEntidad:", err);
+            throw new Error("Error obteniendo costos adicionales");
+        }
+    }
+    async getClienteConVivienda(clienteId) {
+        try {
+            const { data, error } = await supabase
+                .from("clientes_techo_propio")
+                .select(`
+                *,
+                 vivienda:vivienda_techo_propio!fk_cliente(
+                    id,
+                    proyecto,
+                    tipo_vivienda,
+                    valor_vivienda,
+                    modalidad_vivienda,
+                    porcentaje_cuota_inicial,
+                    tipo_vis,
+                    ubicacion,
+                    bono,
+                    valor_total
+                )
+            `)
+                .eq("id", clienteId)
+                .single();
+
+            if (error) {
+                console.error("Error obteniendo cliente/vivienda:", error);
+                throw new Error("No se pudo obtener los datos del cliente");
+            }
+
+            return data;
+
+        } catch (err) {
+            console.error("Error getClienteConVivienda:", err);
+            throw new Error("Error obteniendo datos del cliente");
+        }
+    }
+
+
+    // ============================================================
+    // PROGRAMAS DE VIVIENDA (por ahora estático)
+    // ============================================================
+    async getProgramasVivienda() {
+        return [
+            { value: 'techoPropio', label: 'Techo Propio' },
+            { value: 'miVivienda', label: 'Nuevo Crédito MiVivienda' },
+            { value: 'miViviendaVerde', label: 'MiVivienda Verde' },
+            { value: 'convencional', label: 'Crédito Hipotecario Convencional' },
+        ];
+    }
+
+    // ============================================================
+    // SIMULACIONES (HISTORIAL)
+    // ============================================================
+    /**
+     * Guarda una simulación de plan de pagos.
+     * `simulacion` viene del formulario + resultados (montoFinanciado, tcea, van, tir, cuota, etc).
      */
     async save(simulacion) {
         try {
             const userId = this.getCurrentUserId();
 
-            const simulacionConDatos = {
-                ...simulacion,
-                userId,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+            const payload = {
+                // FK (ajusta los nombres según tu tabla)
+                user_id: userId, // asegúrate de tener esta columna en simulaciones_plan_de_pagos
+                cliente_tp_id: simulacion.clienteId ?? simulacion.cliente_tp_id,
+                vivienda_tp_id: simulacion.viviendaId ?? simulacion.vivienda_tp_id,
+                entidad_id: simulacion.entidadId,
+
+                // Datos básicos
+                programa: simulacion.programa,
+                valor_vivienda: simulacion.valorVivienda,
+                cuota_inicial_porcentaje: simulacion.cuotaInicialPorcentaje,
+                cuota_inicial_monto: simulacion.cuotaInicialMonto,
+                bono_monto: simulacion.montoBono,
+                saldo_financiar: simulacion.saldoFinanciar,
+
+                // Tasa
+                tipo_tasa: simulacion.tipoTasa, // 'TEA'
+                tasa_valor: simulacion.tasaValor,
+
+                // Costos
+                seguro_desgravamen: simulacion.seguroDesgravamen,
+                seguro_inmueble: simulacion.seguroInmueble,
+                gastos_notariales: simulacion.gastosNotariales,
+                gastos_registrales: simulacion.gastosRegistrales,
+                comision_envio: simulacion.comisionEnvio,
+
+                // Plazos y gracia
+                plazo_tipo: simulacion.plazoTipo, // 'años', 'meses', etc
+                plazo_valor: simulacion.plazoValor,
+                gracia_tipo: simulacion.graciaTipo,
+                gracia_meses: simulacion.graciaMeses,
+
+                // Fechas
+                fecha_inicio_pago: simulacion.fechaInicioPago, // 'YYYY-MM-DD'
+                fecha_creacion: new Date().toISOString(),
+
+                // Resultados
+                monto_financiado: simulacion.montoFinanciado,
+                tcea: simulacion.tcea,
+                van: simulacion.van,
+                tir: simulacion.tir,
+                cuota: simulacion.cuota,
             };
 
-            const response = await axios.post(this.endpoint, simulacionConDatos);
-            return response.data;
+            const { data, error } = await supabase
+                .from('simulaciones_plan_de_pagos')
+                .insert(payload)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Error al guardar simulación:', error);
+                throw new Error('No se pudo guardar la simulación');
+            }
+
+            return data;
         } catch (error) {
             console.error('Error al guardar simulación:', error);
-            this.handleError(error, 'Error al guardar la simulación');
+            throw error;
         }
     }
 
     /**
-     * Obtiene el historial de simulaciones del usuario
+     * Lista de simulaciones del usuario actual.
      */
     async findAll() {
         try {
             const userId = this.getCurrentUserId();
 
-            const response = await axios.get(this.endpoint, {
-                params: { userId }
-            });
+            const { data, error } = await supabase
+                .from('simulaciones_plan_de_pagos')
+                .select(
+                    `
+          id,
+          fecha_creacion,
+          programa,
+          valor_vivienda,
+          saldo_financiar,
+          tcea,
+          van,
+          tir,
+          cuota,
+          cliente:clientes_techo_propio!cliente_tp_id ( id, nombres, apellidos ),
+          entidad:entidades_financieras!entidad_id ( id, nombre )
+        `
+                )
+                .eq('user_id', userId)
+                .order('fecha_creacion', { ascending: false });
 
-            // Ordenar por fecha de creación descendente
-            const simulaciones = response.data.sort((a, b) =>
-                new Date(b.createdAt) - new Date(a.createdAt)
-            );
+            if (error) {
+                console.error('Error al obtener simulaciones:', error);
+                throw new Error('No se pudo obtener el historial de simulaciones');
+            }
 
-            return simulaciones;
+            return data;
         } catch (error) {
-            console.error('Error al obtener simulaciones:', error);
-            this.handleError(error, 'Error al obtener el historial de simulaciones');
+            console.error('Error en findAll:', error);
+            throw error;
         }
     }
 
     /**
-     * Obtiene una simulación por ID
+     * Obtiene una simulación por ID (ver detalle + cronograma si luego lo conectas).
      */
     async findById(id) {
         try {
-            const response = await axios.get(`${this.endpoint}/${id}`);
-            const simulacion = response.data;
-
-            // Verificar que la simulación pertenece al usuario actual
             const userId = this.getCurrentUserId();
-            if (simulacion.userId !== userId) {
-                throw new Error('No tienes permiso para ver esta simulación');
+
+            const { data, error } = await supabase
+                .from('simulaciones_plan_de_pagos')
+                .select(
+                    `
+          *,
+          cliente:clientes_techo_propio!cliente_tp_id ( * ),
+          vivienda:vivienda_techo_propio!vivienda_tp_id ( * ),
+          entidad:entidades_financieras!entidad_id ( * )
+        `
+                )
+                .eq('id', id)
+                .eq('user_id', userId)
+                .single();
+
+            if (error) {
+                // PGRST116 = no rows returned
+                if (error.code === 'PGRST116') {
+                    return null;
+                }
+                console.error('Error al obtener simulación por ID:', error);
+                throw new Error('No se pudo obtener la simulación');
             }
 
-            return simulacion;
+            return data;
         } catch (error) {
-            if (error.response?.status === 404) {
-                return null;
-            }
-            console.error('Error al obtener simulación por ID:', error);
-            this.handleError(error, 'Error al obtener la simulación');
+            console.error('Error en findById:', error);
+            throw error;
         }
     }
 
     /**
-     * Elimina una simulación
+     * Elimina una simulación (solo la del usuario actual)
      */
     async delete(id) {
         try {
-            // Verificar que la simulación pertenece al usuario actual
-            const simulacionExistente = await this.findById(id);
             const userId = this.getCurrentUserId();
 
-            if (simulacionExistente.userId !== userId) {
-                throw new Error('No tienes permiso para eliminar esta simulación');
-            }
+            const { error } = await supabase
+                .from('simulaciones_plan_de_pagos')
+                .delete()
+                .eq('id', id)
+                .eq('user_id', userId);
 
-            await axios.delete(`${this.endpoint}/${id}`);
-        } catch (error) {
-            console.error('Error al eliminar simulación:', error);
-            this.handleError(error, 'Error al eliminar la simulación');
-        }
-    }
-
-    /**
-     * Obtiene las entidades financieras disponibles
-     */
-    async getEntidadesFinancieras() {
-        // Por ahora retornamos datos estáticos
-        return [
-            { value: 'bcp', label: 'Banco de Crédito del Perú' },
-            { value: 'bbva', label: 'BBVA Continental' },
-            { value: 'interbank', label: 'Interbank' },
-            { value: 'scotiabank', label: 'Scotiabank' },
-            { value: 'banbif', label: 'BanBif' },
-            { value: 'pichincha', label: 'Banco Pichincha' },
-            { value: 'mibanco', label: 'Mibanco' },
-            { value: 'cajaArequipa', label: 'Caja Arequipa' },
-            { value: 'cajaHuancayo', label: 'Caja Huancayo' },
-            { value: 'cajaPiura', label: 'Caja Piura' }
-        ];
-    }
-
-    /**
-     * Obtiene los programas de vivienda disponibles
-     */
-    async getProgramasVivienda() {
-        // Por ahora retornamos datos estáticos
-        return [
-            { value: 'techoPropio', label: 'Techo Propio' },
-            { value: 'miVivienda', label: 'Nuevo Crédito MiVivienda' },
-            { value: 'miViviendaVerde', label: 'MiVivienda Verde' },
-            { value: 'convencional', label: 'Crédito Hipotecario Convencional' }
-        ];
-    }
-
-    /**
-     * Obtiene los costos adicionales de una entidad financiera
-     * @param {string} entidadValue - El value de la entidad (ej: 'bcp', 'bbva')
-     * @returns {Promise<Object>}
-     */
-    async getCostosEntidad(entidadValue) {
-        try {
-            // Datos basados en los promedios del CSV proporcionado
-            // En producción, esto vendría de la base de datos
-            const costosMap = {
-                'bcp': {
-                    seguroDesgravamen: 0.35,
-                    tasacion: 160,
-                    seguroInmueble: 0.0195,
-                    gastosNotariales: 500,
-                    comisionDesembolso: 0
-                },
-                'bbva': {
-                    seguroDesgravamen: 0.47,
-                    tasacion: 160,
-                    seguroInmueble: 0.0252,
-                    gastosNotariales: 500,
-                    comisionDesembolso: 0
-                },
-                'interbank': {
-                    seguroDesgravamen: 0.47,
-                    tasacion: 160,
-                    seguroInmueble: 0.0209,
-                    gastosNotariales: 500,
-                    comisionDesembolso: 0
-                },
-                'scotiabank': {
-                    seguroDesgravamen: 0.29,
-                    tasacion: 140,
-                    seguroInmueble: 0.031,
-                    gastosNotariales: 310,
-                    comisionDesembolso: 3
-                },
-                'banbif': {
-                    seguroDesgravamen: 0.11,
-                    tasacion: 160,
-                    seguroInmueble: 0.035,
-                    gastosNotariales: 500,
-                    comisionDesembolso: 5
-                },
-                'pichincha': {
-                    seguroDesgravamen: 0.53,
-                    tasacion: 160,
-                    seguroInmueble: 0.0275,
-                    gastosNotariales: 375,
-                    comisionDesembolso: 0
-                },
-                'mibanco': {
-                    seguroDesgravamen: 0.46,
-                    tasacion: 160,
-                    seguroInmueble: 0.0237,
-                    gastosNotariales: 310,
-                    comisionDesembolso: 6.4
-                },
-                'cajaArequipa': {
-                    seguroDesgravamen: 0.07,
-                    tasacion: 160,
-                    seguroInmueble: 0.0253,
-                    gastosNotariales: 310,
-                    comisionDesembolso: 2.5
-                },
-                'cajaHuancayo': {
-                    seguroDesgravamen: 0.14,
-                    tasacion: 242.5,
-                    seguroInmueble: 0.028,
-                    gastosNotariales: 1250,
-                    comisionDesembolso: 11
-                },
-                'cajaPiura': {
-                    seguroDesgravamen: 0.04,
-                    tasacion: 265,
-                    seguroInmueble: 0.0255,
-                    gastosNotariales: 310,
-                    comisionDesembolso: 10
-                }
-            };
-
-            return costosMap[entidadValue] || {
-                seguroDesgravamen: 0,
-                tasacion: 0,
-                seguroInmueble: 0,
-                gastosNotariales: 0,
-                comisionDesembolso: 0
-            };
-        } catch (error) {
-            console.error('Error al obtener costos de entidad:', error);
-            return {
-                seguroDesgravamen: 0,
-                tasacion: 0,
-                seguroInmueble: 0,
-                gastosNotariales: 0,
-                comisionDesembolso: 0
-            };
-        }
-    }
-
-    /**
-     * Obtiene las tasas TEA de una entidad financiera según el programa
-     * @param {string} entidadValue - El value de la entidad (ej: 'bcp', 'bbva')
-     * @param {string} programa - El programa de vivienda ('techoPropio', 'miVivienda', etc.)
-     * @returns {Promise<Object>}
-     */
-    async getTasasEntidad(entidadValue, programa = 'miVivienda') {
-        try {
-            // Datos basados en el CSV de tasas proporcionado
-            // En producción, esto vendría de la base de datos
-            const tasasMap = {
-                'bcp': {
-                    techoPropio: { min: 10.20, max: 12.00, promedio: 11.10 },
-                    miVivienda: { min: 10.20, max: 13.99, promedio: 12.10 }
-                },
-                'bbva': {
-                    techoPropio: { min: 12.51, max: 15.21, promedio: 13.86 },
-                    miVivienda: { min: 12.51, max: 15.28, promedio: 13.90 }
-                },
-                'interbank': {
-                    techoPropio: { min: 13.00, max: 16.00, promedio: 14.50 },
-                    miVivienda: { min: 13.00, max: 16.00, promedio: 14.50 }
-                },
-                'scotiabank': {
-                    techoPropio: { min: 9.99, max: 12.40, promedio: 11.20 },
-                    miVivienda: { min: 9.99, max: 12.40, promedio: 11.20 }
-                },
-                'banbif': {
-                    techoPropio: { min: 20.00, max: 20.00, promedio: 20.00 },
-                    miVivienda: { min: 20.00, max: 20.00, promedio: 20.00 }
-                },
-                'pichincha': {
-                    techoPropio: { min: 15.00, max: 16.50, promedio: 15.75 },
-                    miVivienda: { min: 15.00, max: 16.50, promedio: 15.75 }
-                },
-                'mibanco': {
-                    techoPropio: { min: 10.75, max: 15.80, promedio: 13.28 },
-                    miVivienda: { min: 10.75, max: 15.80, promedio: 13.28 }
-                },
-                'cajaArequipa': {
-                    techoPropio: { min: 13.99, max: 19.99, promedio: 16.99 },
-                    miVivienda: { min: 13.99, max: 19.99, promedio: 16.99 }
-                },
-                'cajaHuancayo': {
-                    techoPropio: { min: 11.22, max: 14.98, promedio: 13.10 },
-                    miVivienda: { min: 11.22, max: 14.98, promedio: 13.10 }
-                },
-                'cajaPiura': {
-                    techoPropio: { min: 13.75, max: 16.00, promedio: 14.88 },
-                    miVivienda: { min: 11.50, max: 16.00, promedio: 13.75 }
-                }
-            };
-
-            const entidadTasas = tasasMap[entidadValue];
-            if (!entidadTasas) {
-                return { min: 0, max: 0, promedio: 0 };
-            }
-
-            // Determinar qué tasas usar según el programa
-            if (programa === 'techoPropio') {
-                return entidadTasas.techoPropio;
-            } else {
-                // Para miVivienda, miViviendaVerde y convencional usar las tasas de NCMV
-                return entidadTasas.miVivienda;
+            if (error) {
+                console.error('Error al eliminar simulación:', error);
+                throw new Error('No se pudo eliminar la simulación');
             }
         } catch (error) {
-            console.error('Error al obtener tasas de entidad:', error);
-            return { min: 0, max: 0, promedio: 0 };
-        }
-    }
-
-    /**
-     * Maneja los errores de las peticiones HTTP
-     */
-    handleError(error, defaultMessage) {
-        if (error.message) {
-            throw new Error(error.message);
-        } else if (error.response) {
-            const message = error.response.data?.message || defaultMessage;
-            throw new Error(message);
-        } else if (error.request) {
-            throw new Error('No se pudo conectar con el servidor. Verifique su conexión.');
-        } else {
-            throw new Error(defaultMessage);
+            console.error('Error en delete:', error);
+            throw error;
         }
     }
 }
