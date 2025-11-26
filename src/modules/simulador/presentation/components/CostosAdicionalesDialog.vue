@@ -1,24 +1,25 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted, computed } from 'vue';
+import { useSimulador } from '../composables/useSimulador.js';
 import { SimuladorRepositoryImpl } from '../../infrastructure/repositories/SimuladorRepositoryImpl.js';
 
 const props = defineProps({
-  visible: {
-    type: Boolean,
-    required: true
-  },
-  costos: {
-    type: Object,
-    default: () => ({})
-  }
+  visible: Boolean,
+  costos: Object
 });
 
 const emit = defineEmits(['update:visible', 'guardar']);
 
-// Repository
+// ----- usamos un solo repositorio -----
 const repository = new SimuladorRepositoryImpl();
 
-// State local
+// ----- usamos un solo composable -----
+const { fetchEntidadesFinancieras, entidadesFinancieras } = useSimulador();
+
+// Opciones del dropdown
+const entidadesOptions = computed(() => entidadesFinancieras.value);
+
+// Formulario
 const formData = ref({
   entidadFinanciera: '',
   seguroDesgravamen: 0,
@@ -29,78 +30,97 @@ const formData = ref({
 });
 
 const loading = ref(false);
+const rangos = ref({});
 
-// Opciones de entidades financieras
-const entidadesOptions = [
-  { label: 'Banco de Crédito del Perú', value: 'bcp' },
-  { label: 'BBVA Continental', value: 'bbva' },
-  { label: 'Interbank', value: 'interbank' },
-  { label: 'Scotiabank', value: 'scotiabank' },
-  { label: 'BanBif', value: 'banbif' },
-  { label: 'Banco Pichincha', value: 'pichincha' },
-  { label: 'Mibanco', value: 'mibanco' },
-  { label: 'Caja Arequipa', value: 'cajaArequipa' },
-  { label: 'Caja Huancayo', value: 'cajaHuancayo' },
-  { label: 'Caja Piura', value: 'cajaPiura' }
-];
+// Cuando se abre el modal → cargar entidades
+onMounted(async () => {
+  await fetchEntidadesFinancieras();
+});
 
-// Watch para actualizar los datos cuando se abre el diálogo
-watch(() => props.visible, (newVal) => {
-  if (newVal) {
-    formData.value = {
-      entidadFinanciera: props.costos.entidadFinanciera || '',
-      seguroDesgravamen: props.costos.seguroDesgravamen || 0,
-      tasacion: props.costos.tasacion || 0,
-      seguroInmueble: props.costos.seguroInmueble || 0,
-      gastosNotariales: props.costos.gastosNotariales || 0,
-      comisionDesembolso: props.costos.comisionDesembolso || 0
-    };
+// Copiar datos iniciales cuando visible cambia
+watch(() => props.visible, (open) => {
+  if (open && props.costos) {
+    formData.value = { ...props.costos };
   }
 });
 
-// Watch para cargar costos cuando cambia la entidad financiera
-watch(() => formData.value.entidadFinanciera, async (newEntidad) => {
-  if (newEntidad) {
-    await cargarCostosEntidad(newEntidad);
-  }
-});
+// Cuando cambia la entidad financiera → jalar costos de Supabase
+watch(() => formData.value.entidadFinanciera, async (entidadId) => {
+  if (!entidadId) return;
 
-// Methods
-const cargarCostosEntidad = async (entidadValue) => {
   try {
     loading.value = true;
 
-    // Obtener los costos de la entidad seleccionada
-    const costos = await repository.getCostosEntidad(entidadValue);
+    // Obtener costos desde el repo
+    const costos = await repository.getCostosEntidad(entidadId);
 
-    // Actualizar el formulario con los costos obtenidos
-    formData.value.seguroDesgravamen = costos.seguroDesgravamen;
-    formData.value.tasacion = costos.tasacion;
-    formData.value.seguroInmueble = costos.seguroInmueble;
-    formData.value.gastosNotariales = costos.gastosNotariales;
+    // Guardar rangos completos
+    rangos.value = costos;
+
+    // ⚡ Opción A: asignar SIEMPRE valor mínimo permitido
+    formData.value.seguroDesgravamen = costos.seguroDesgravamen.min;
+    formData.value.tasacion = costos.tasacion.min;
+    formData.value.seguroInmueble = costos.seguroInmueble.min;
+    formData.value.gastosNotariales = costos.gastosNotariales.min;
     formData.value.comisionDesembolso = costos.comisionDesembolso;
 
   } catch (error) {
-    console.error('Error al cargar costos de entidad:', error);
+    console.error("Error cargando costos:", error);
   } finally {
     loading.value = false;
   }
-};
+});
+// Auto-validar que los valores estén dentro del rango permitido
+watch(formData, (nuevo) => {
+  if (!rangos.value.seguroDesgravamen) return;
 
+  const validar = (valor, min, max) => {
+    if (valor < min) return min;
+    if (valor > max) return max;
+    return valor;
+  };
+
+  nuevo.seguroDesgravamen = validar(
+      nuevo.seguroDesgravamen,
+      rangos.value.seguroDesgravamen.min,
+      rangos.value.seguroDesgravamen.max
+  );
+
+  nuevo.seguroInmueble = validar(
+      nuevo.seguroInmueble,
+      rangos.value.seguroInmueble.min,
+      rangos.value.seguroInmueble.max
+  );
+
+  nuevo.tasacion = validar(
+      nuevo.tasacion,
+      rangos.value.tasacion.min,
+      rangos.value.tasacion.max
+  );
+
+  nuevo.gastosNotariales = validar(
+      nuevo.gastosNotariales,
+      rangos.value.gastosNotariales.min,
+      rangos.value.gastosNotariales.max
+  );
+});
+
+
+// Guardar
 const handleGuardar = () => {
-  emit('guardar', { ...formData.value });
-  handleClose();
+  emit("guardar", { ...formData.value });
+  emit("update:visible", false);
 };
 
+// Cerrar
+const handleClose = () => emit("update:visible", false);
+
+// Modo edición
 const handleEditar = () => {
-  // Los campos ya son editables, solo es feedback visual
-  console.log('Editando costos adicionales');
-};
-
-const handleClose = () => {
-  emit('update:visible', false);
+  console.log("Modo edición");
 };
 </script>
+
 
 <template>
   <Dialog

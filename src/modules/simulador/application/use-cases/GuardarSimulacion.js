@@ -1,9 +1,7 @@
 // src/modules/simulador/application/use-cases/GuardarSimulacion.js
 
-import { Simulacion } from '../../domain/entities/Simulacion.js';
-
 /**
- * Caso de uso: Guardar simulación en el historial
+ * Caso de uso: Guardar simulación en Supabase
  */
 export class GuardarSimulacion {
     constructor(repository) {
@@ -12,29 +10,69 @@ export class GuardarSimulacion {
 
     /**
      * Ejecuta el guardado de la simulación
+     * Aquí ya NO se vuelve a validar ni calcular,
+     * porque la simulación ya viene procesada desde CalcularSimulacion.
      */
-    async execute(simulacionData) {
+    async execute(simulacion) {
         try {
-            const simulacion = Simulacion.create(simulacionData);
-            const validation = simulacion.validate();
 
-            if (!validation.valid) {
-                throw new Error(validation.errors.join(', '));
+            if (!simulacion) {
+                throw new Error("No hay simulación para guardar");
             }
 
-            // Agregar userId del usuario actual
+            // Obtener usuario actual (si existe)
             const userStr = localStorage.getItem('user');
             if (userStr) {
                 const user = JSON.parse(userStr);
                 simulacion.userId = user.id;
             }
 
-            // Guardar en el repositorio
-            const simulacionGuardada = await this.repository.save(simulacion.toJSON());
+            // Adaptar los campos EXACTOS para Supabase
+            const dataParaGuardar = this.mapearAFormatoSupabase(simulacion);
+
+            // Guardar en repositorio
+            const simulacionGuardada = await this.repository.save(dataParaGuardar);
+
             return simulacionGuardada;
+
         } catch (error) {
-            console.error('Error en GuardarSimulacion:', error);
+            console.error("Error en GuardarSimulacion:", error);
             throw error;
         }
+    }
+
+    /**
+     * Mapea los nombres internos del simulador
+     * a los nombres exactos que necesita Supabase
+     */
+    mapearAFormatoSupabase(sim) {
+        return {
+            cliente_id: sim.clienteId,
+            entidad_id: sim.entidadId,
+            programa: sim.programa,
+            tasa: sim.tasaValor,
+            plazo: sim.plazoValor,
+            cuota_inicial: sim.cuotaInicial,
+            monto_financiar: sim.saldoFinanciar,
+            cuota_mensual: sim.cuota,
+            tcea: sim.tcea,
+            van: sim.van,
+            tir: sim.tir,
+
+            // costos adicionales
+            seguro_desgravamen: sim.seguroDesgravamen,
+            seguro_inmueble: sim.seguroInmueble,
+            tasacion: sim.tasacion,
+            gastos_notariales: sim.gastosNotariales,
+            comision_envio: sim.comisionEnvio,
+
+            // gracia
+            gracia_tipo: sim.graciaTipo,
+            gracia_meses: sim.graciaMeses,
+
+            // datos de control
+            fecha_inicio_pago: sim.fechaInicioPago,
+            user_id: sim.userId
+        };
     }
 }
