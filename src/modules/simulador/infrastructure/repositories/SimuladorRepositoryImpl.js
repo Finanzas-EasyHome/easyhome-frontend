@@ -3,12 +3,10 @@
 import { supabase } from '/src/shared/infrastructure/supabase.js';
 import { SimuladorRepository } from '/src/modules/simulador/domain/repositories/SimuladorRepository.js';
 import { Simulacion } from '../../domain/entities/Simulacion';
-
 export class SimuladorRepositoryImpl extends SimuladorRepository {
     constructor() {
         super();
     }
-
     // ============================================================
     // USUARIO ACTUAL
     // ============================================================
@@ -54,6 +52,10 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
             ncmvTeaMax: Number(entidad.ncmv_tea_max ?? 0),
         }));
     }
+    async getBonoTechoPropio(modalidad, tipoVis) {
+        throw new Error("Method getBonoTechoPropio() must be implemented");
+    }
+
 
     /**
      * Obtiene el rango de tasas TEA de una entidad según programa.
@@ -132,6 +134,32 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
             throw new Error("Error obteniendo costos adicionales");
         }
     }
+    async getBonoTechoPropio(modalidad, tipoVis) {
+        try {
+            const { data, error } = await supabase
+                .from("bono_techo_propio")
+                .select("monto")
+                .eq("modalidad", modalidad)
+                .eq("tipo_vis", tipoVis)
+                .maybeSingle();
+
+            if (error) {
+                console.error("Error obteniendo bono techo propio:", error);
+                throw new Error("No se pudo obtener el bono para la combinación seleccionada");
+            }
+
+            if (!data) {
+                // No hay bono para esa combinación → 0
+                return 0;
+            }
+
+            return Number(data.monto ?? 0);
+        } catch (err) {
+            console.error("Error getBonoTechoPropio:", err);
+            throw err;
+        }
+    }
+
     async getClienteConVivienda(clienteId) {
         try {
             const { data, error } = await supabase

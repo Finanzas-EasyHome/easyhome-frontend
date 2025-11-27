@@ -22,7 +22,8 @@ const {
   fetchProgramasVivienda,
   tieneSimulacion,
   exportarCronograma,
-  fetchTasasEntidad
+  fetchTasasEntidad,
+  fetchBonoTechoPropio,
 } = useSimulador();
 
 const { allClientes, fetchClientes } = useClientes();
@@ -260,36 +261,48 @@ const cargarDatosCliente = async (clienteId) => {
     // ================================
     //  VIVIENDA
     // ================================
-    if (info.vivienda) {
-      const v = info.vivienda;formData.value.programaObjetivo = v.modalidad_vivienda || v.tipo_vis || "";
+    if (info.vivienda && info.vivienda.length > 0) {
 
+      const v = info.vivienda[0];   // ✔ CORRECTO: tomar primer registro 1→1
+
+      // Programa objetivo
+      formData.value.programaObjetivo =
+          v.modalidad_vivienda || v.tipo_vis || "";
+
+      // Datos financieros
       formData.value.valorVivienda = Number(v.valor_vivienda ?? 0);
       formData.value.cuotaInicialPorcentaje = Number(v.porcentaje_cuota_inicial ?? 0);
-      formData.value.montoBono = Number(v.bono ?? 0);
 
-      // Calcular cuota inicial monto:
+
+      // Cuota inicial S/
       formData.value.cuotaInicial =
-          (formData.value.valorVivienda * formData.value.cuotaInicialPorcentaje) / 100;
+          formData.value.valorVivienda *
+          (formData.value.cuotaInicialPorcentaje / 100);
+      try {
+        const bono = await fetchBonoTechoPropio(
+            v.modalidad_vivienda,
+            v.tipo_vis
+        );
+        formData.value.montoBono = bono;
+      } catch {
+        formData.value.montoBono = 0;   // si falla → 0
+      }
 
-      // Calcular saldo a financiar:
+      // Saldo a financiar
       formData.value.montoFinanciado =
           formData.value.valorVivienda -
           formData.value.cuotaInicial -
           formData.value.montoBono;
-
-      // Programa objetivo:
-      formData.value.programaObjetivo =
-          v.modalidad_vivienda ??
-          v.tipo_vis ??
-          "";
     }
 
+
     toast.add({
-      severity: 'success',
-      summary: 'Datos cargados',
-      detail: `Datos de ${formData.value.clienteNombre} cargados correctamente`,
-      life: 2000
+      severity: "success",
+      summary: "Datos cargados",
+      detail: `Datos del cliente ${info.nombresApellidos} cargados correctamente`,
+      life: 2000,
     });
+
 
   } catch (error) {
     console.error('Error al cargar datos del cliente:', error);
