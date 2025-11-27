@@ -194,9 +194,16 @@ export const useSimulador = () => {
         }
     };
 
-    /**
-     * Exporta el cronograma a un archivo compatible con Excel
-     */
+    const fetchBonoTechoPropio = async (modalidad, tipoVis) => {
+        try {
+            const monto = await repository.getBonoTechoPropio(modalidad, tipoVis);
+            return monto;
+        } catch (e) {
+            console.error("Error al obtener bono techo propio:", e);
+            return 0;
+        }
+    };
+
     const exportarCronograma = (fileName = 'cronograma_pagos.xls') => {
         const cronograma = simulacionActual.value?.cronogramaPagos;
 
@@ -298,6 +305,7 @@ export const useSimulador = () => {
         fetchEntidadesFinancieras,
         fetchProgramasVivienda,
         fetchTasasEntidad,
+        fetchBonoTechoPropio,
         fetchClienteConVivienda,
         exportarCronograma,
         clearError
