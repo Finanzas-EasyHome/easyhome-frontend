@@ -165,6 +165,21 @@ export const useSimulador = () => {
             return [];
         }
     };
+    const fetchClienteConVivienda = async (clienteId) => {
+        loading.value = true;
+        error.value = null;
+
+        try {
+            const data = await repository.getClienteConVivienda(clienteId);
+            return data;
+        } catch (e) {
+            console.error("Error al obtener cliente:", e);
+            error.value = "No se pudo cargar la información del cliente";
+            throw e;
+        } finally {
+            loading.value = false;
+        }
+    };
 
     /**
      * Obtiene las tasas TEA de una entidad según el programa
@@ -283,6 +298,7 @@ export const useSimulador = () => {
         fetchEntidadesFinancieras,
         fetchProgramasVivienda,
         fetchTasasEntidad,
+        fetchClienteConVivienda,
         exportarCronograma,
         clearError
     };

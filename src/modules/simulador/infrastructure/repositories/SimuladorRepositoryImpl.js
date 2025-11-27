@@ -138,7 +138,7 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
                 .from("clientes_techo_propio")
                 .select(`
                 *,
-                 vivienda:vivienda_techo_propio!fk_cliente(
+                 vivienda:vivienda_techo_propio!vivienda_techo_propio_fk_cliente_fkey(
                     id,
                     proyecto,
                     tipo_vivienda,
@@ -147,8 +147,7 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
                     porcentaje_cuota_inicial,
                     tipo_vis,
                     ubicacion,
-                    bono,
-                    valor_total
+                    fecha_registro
                 )
             `)
                 .eq("id", clienteId)

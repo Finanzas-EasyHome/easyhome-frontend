@@ -11,7 +11,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
             .from("clientes_techo_propio")
             .select(`
             *,
-            vivienda:vivienda_techo_propio!fk_cliente (
+            vivienda:vivienda_techo_propio!vivienda_techo_propio_fk_cliente_fkey (
             id,
                 proyecto,
                 tipo_vivienda,
@@ -25,36 +25,41 @@ export class ClienteRepositoryImpl extends ClienteRepository {
 
         if (error) throw new Error("Error al obtener clientes");
 
-        return data.map(c => ({
-            id: c.id,
-            nombresApellidos: c.nombres_completos,
-            dni: c.dni,
-            edad: c.edad,
-            ingresoFamiliar: c.ingreso_familiar,
-            estadoCivil: c.estado_civil,
-            tieneDiscapacidad: c.discapacidad,
-            esMigranteRetornado: c.migrante_retornado,
-            esPersonaDesplazada: c.persona_desplazada,
+        return data.map(c => {
+            const v = Array.isArray(c.vivienda) ? c.vivienda[0] : c.vivienda;
+            return {
+                id: c.id,
+                nombresApellidos: c.nombres_completos,
+                dni: c.dni,
+                edad: c.edad,
+                ingresoFamiliar: c.ingreso_familiar,
+                estadoCivil: c.estado_civil,
+                tieneDiscapacidad: c.discapacidad,
+                esMigranteRetornado: c.migrante_retornado,
+                esPersonaDesplazada: c.persona_desplazada,
 
-            aporte: c.vivienda
-                ? Number(c.vivienda.valor_vivienda || 0) *
-                (Number(c.vivienda.porcentaje_cuota_inicial || 0) / 100)
-                : 0,
+                aporte: v
+                    ? Number(v.valor_vivienda || 0) *
+                    (Number(v.porcentaje_cuota_inicial || 0) / 100)
+                    : 0,
 
-            vivienda: c.vivienda
-                ? {
-                    id: c.vivienda.id,
-                    proyecto: c.vivienda.proyecto,
-                    tipoVivienda: c.vivienda.tipo_vivienda,
-                    valorVivienda: c.vivienda.valor_vivienda,
-                    modalidadVivienda: c.vivienda.modalidad_vivienda,
-                    cuotaInicial: Number(c.vivienda.valor_vivienda) * (Number(c.vivienda.porcentaje_cuota_inicial) / 100),
-                    cuotaInicialPorcentaje: c.vivienda.porcentaje_cuota_inicial,
-                    tipoVIS: c.vivienda.tipo_vis,
-                    ubicacion: c.vivienda.ubicacion,
-                }
-                : null
-        }));
+                vivienda: v
+                    ? {
+                        id: v.id,
+                        proyecto: v.proyecto,
+                        tipoVivienda: v.tipo_vivienda,
+                        valorVivienda: v.valor_vivienda,
+                        modalidadVivienda: v.modalidad_vivienda,
+                        cuotaInicial:
+                            Number(v.valor_vivienda) *
+                            (Number(v.porcentaje_cuota_inicial) / 100),
+                        cuotaInicialPorcentaje: v.porcentaje_cuota_inicial,
+                        tipoVIS: v.tipo_vis,
+                        ubicacion: v.ubicacion,
+                    }
+                    : null
+            };
+        });
     }
 
     async findById(id) {
@@ -62,7 +67,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
             .from("clientes_techo_propio")
             .select(`
             *,
-            vivienda:vivienda_techo_propio!fk_cliente (
+            vivienda:vivienda_techo_propio!vivienda_techo_propio_fk_cliente_fkey (
             id,
                 proyecto,
                 tipo_vivienda,
@@ -79,7 +84,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
         if (error) throw new Error("Error al obtener cliente");
 
         return {
-            id: data.vivienda.id,
+            id: data.id,
             nombresApellidos: data.nombres_completos,
             dni: data.dni,
             edad: data.edad,
@@ -96,6 +101,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
 
             vivienda: data.vivienda
                 ? {
+                    id: data.vivienda.id,
                     proyecto: data.vivienda.proyecto,
                     tipoVivienda: data.vivienda.tipo_vivienda,
                     valorVivienda: data.vivienda.valor_vivienda,
@@ -138,7 +144,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
         const { error: viviendaError } = await supabase
             .from("vivienda_techo_propio")
             .insert({
-                cliente_id: newClient.id,
+                fk_cliente: newClient.id,
                 proyecto: vivienda.proyecto,
                 tipo_vivienda: vivienda.tipoVivienda,
                 valor_vivienda: vivienda.valorVivienda,
@@ -188,7 +194,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
                 ubicacion: cliente.vivienda.ubicacion,
                 fecha_actualizacion: new Date()
             })
-            .eq("cliente_id", id);
+            .eq("fk_cliente", id);
 
         return true;
     }

@@ -22,7 +22,6 @@ const {
   fetchProgramasVivienda,
   tieneSimulacion,
   exportarCronograma,
-  // ✅ NUEVO: usamos el método que consulta Supabase
   fetchTasasEntidad
 } = useSimulador();
 
@@ -262,7 +261,7 @@ const cargarDatosCliente = async (clienteId) => {
     //  VIVIENDA
     // ================================
     if (info.vivienda) {
-      const v = info.vivienda;
+      const v = info.vivienda;formData.value.programaObjetivo = v.modalidad_vivienda || v.tipo_vis || "";
 
       formData.value.valorVivienda = Number(v.valor_vivienda ?? 0);
       formData.value.cuotaInicialPorcentaje = Number(v.porcentaje_cuota_inicial ?? 0);
@@ -279,7 +278,10 @@ const cargarDatosCliente = async (clienteId) => {
           formData.value.montoBono;
 
       // Programa objetivo:
-      formData.value.programaObjetivo = v.modalidad_vivienda || v.tipo_vis || "";
+      formData.value.programaObjetivo =
+          v.modalidad_vivienda ??
+          v.tipo_vis ??
+          "";
     }
 
     toast.add({
@@ -550,10 +552,13 @@ onMounted(async () => {
           <div class="col-12 md:col-6">
             <div class="field">
               <label for="programa">Programa objetivo</label>
-              <InputText
+              <Dropdown
                   id="programa"
                   v-model="formData.programaObjetivo"
-                  placeholder="Ej: Techo Propio, MiVivienda"
+                  :options="programasVivienda"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Seleccionar programa"
                   class="w-full"
                   :disabled="loading"
               />
