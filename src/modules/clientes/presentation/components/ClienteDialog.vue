@@ -1,6 +1,6 @@
 <!-- src/modules/clientes/presentation/components/ClienteDialog.vue -->
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 
 /* ===========================================================
    PROPS Y EMITS
@@ -53,6 +53,7 @@ const errors = ref({
   viviendaVIS: "",
   viviendaUbicacion: ""
 });
+
 const proyectosData = [
   {
     proyecto: "Proyecto Los capibaras",
@@ -67,31 +68,10 @@ const proyectosData = [
     tipo_vivienda: "Departamento",
     modalidad_vivienda: "Construcción en Sitio Propio",
     valor_vivienda: 95000,
-    tipo_vis: "VIS Priorizada en Lote Unifamiliar",
+    tipo_vis: "Ninguna",
     ubicacion: "Villa El Salvador"
   }
 ];
-
-// Cuando el usuario escriba un proyecto:
-watch(
-    () => form.value.vivienda.proyecto,
-    (nombre) => {
-      if (!nombre) return;
-
-      const v = proyectosData.find((x) => x.proyecto === nombre);
-      if (!v) return;
-
-      // Sincroniza automáticamente el resto de campos
-      form.value.vivienda.tipoVivienda = v.tipo_vivienda;
-      form.value.vivienda.modalidadVivienda = v.modalidad_vivienda;
-      form.value.vivienda.valorVivienda = Number(v.valor_vivienda);
-      form.value.vivienda.tipoVIS = v.tipo_vis;
-      form.value.vivienda.ubicacion = v.ubicacion;
-
-      // Recalcular cuota inicial según porcentaje VIS
-      recalcularCuotaDesdePorcentaje();
-    }
-);
 
 /* ===========================================================
    LISTAS FIJAS
@@ -103,12 +83,14 @@ const estadosCiviles = [
   { label: "Viudo/a", value: "Viudo" },
   { label: "Conviviente", value: "Conviviente" }
 ];
+
 const tiposVivienda = [
   { label: "Departamento", value: "Departamento" },
   { label: "Conjunto Residencial", value: "Conjunto Residencial" },
   { label: "Vivienda Unifamiliar", value: "Vivienda Unifamiliar" },
   { label: "Lote", value: "Lote" }
 ];
+
 const tiposVIS = [
   {
     label: "VIS Priorizada en Lote Unifamiliar",
@@ -129,13 +111,40 @@ const tiposVIS = [
   }
 ];
 
-/* Reglas para cada tipo de VIS */
+/* Reglas para cada tipo de VIS - CORREGIDAS */
 const visConfig = {
-  "VIS Priorizada en Lote Unifamiliar": { mode: "range", min: 1, max: 2, editable: true },
-  "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta": { mode: "fixed", value: 1, editable: false },
-  "VIS en Edificio Multifamiliar / Conjunto Residencial / Quinta": { mode: "fixed", value: 3, editable: false },
-  "Ninguna": { mode: "fixed", value: 0, editable: false },
-  "VIS en Lote Unifamiliar": { mode: "fixed", value: 3, editable: false }
+  "VIS Priorizada en Lote Unifamiliar": {
+    mode: "range",
+    min: 1,
+    max: 3,
+    editable: true,
+    descripcion: "Ahorro entre 1% y 3%"
+  },
+  "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta": {
+    mode: "range",
+    min: 1,
+    max: 3,
+    editable: true,
+    descripcion: "Ahorro entre 1% y 3%"
+  },
+  "VIS en Edificio Multifamiliar / Conjunto Residencial / Quinta": {
+    mode: "minimum",
+    min: 3,
+    editable: true,
+    descripcion: "Mínimo 3%"
+  },
+  "Ninguna": {
+    mode: "minimum",
+    min: 0,
+    editable: true,
+    descripcion: "Desde 0% en adelante"
+  },
+  "VIS en Lote Unifamiliar": {
+    mode: "minimum",
+    min: 3,
+    editable: true,
+    descripcion: "Mínimo 3%"
+  }
 };
 
 const porcentajeBloqueado = ref(false);
@@ -217,6 +226,201 @@ watch(
 );
 
 /* ===========================================================
+   VALIDACIÓN DEL FORMULARIO
+   =========================================================== */
+function validateForm() {
+  let valid = true;
+  resetErrors();
+
+  // Validación: Nombres y Apellidos
+  if (!form.value.nombresApellidos.trim()) {
+    errors.value.nombresApellidos = "El nombre es requerido";
+    valid = false;
+  }
+
+  // Validación: DNI
+  if (!form.value.dni || form.value.dni.length !== 8) {
+    errors.value.dni = "DNI inválido (8 dígitos)";
+    valid = false;
+  }
+
+  // Validación: Edad
+  if (!form.value.edad || form.value.edad < 18) {
+    errors.value.edad = "Edad inválida (mayor o igual a 18)";
+    valid = false;
+  }
+
+  // Validación: Estado Civil
+  if (!form.value.estadoCivil) {
+    errors.value.estadoCivil = "El estado civil es requerido";
+    valid = false;
+  }
+
+  // Validación: Ingreso Familiar básico
+  if (!form.value.ingresoFamiliar || form.value.ingresoFamiliar <= 0) {
+    errors.value.ingresoFamiliar = "El ingreso familiar debe ser mayor a 0";
+    valid = false;
+  }
+
+// ========================================================
+//  VALIDACIÓN: Ingreso Familiar según modalidad / VIS
+// ========================================================
+  const IFM = Number(form.value.ingresoFamiliar);
+  const modalidad = form.value.vivienda.modalidadVivienda;
+  const tipoVIS = form.value.vivienda.tipoVIS;
+
+  let limiteIFM = null;
+
+// 1. ADQUISICIÓN DE VIVIENDA
+  if (modalidad === "Adquisición de Vivienda") {
+    const visPriorizadas = [
+      "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta",
+      "VIS Priorizada en Lote Unifamiliar"
+    ];
+
+    if (visPriorizadas.includes(tipoVIS)) {
+      // VIS Priorizadas: límite 2,071.2
+      limiteIFM = 2071.2;
+    } else {
+      // VIS normales (VIS en Lote Unifamiliar, VIS en Edificio...): límite 3,715.1
+      limiteIFM = 3715.1;
+    }
+  }
+
+// 2. CONSTRUCCIÓN EN SITIO PROPIO con Ninguna
+  if (modalidad === "Construcción en Sitio Propio" && tipoVIS === "Ninguna") {
+    limiteIFM = 2706.3;
+  }
+
+// 3. MEJORAMIENTO DE VIVIENDA con Ninguna
+  if (modalidad === "Mejoramiento de Vivienda" && tipoVIS === "Ninguna") {
+    limiteIFM = 2706.4;
+  }
+
+// Aplicar validación del límite IFM SOLO si se estableció un límite
+  if (limiteIFM !== null && IFM > limiteIFM) {
+    errors.value.ingresoFamiliar =
+        `El ingreso familiar no debe superar S/ ${limiteIFM.toLocaleString('es-PE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} para esta modalidad y tipo de VIS.`;
+    valid = false;
+  }
+
+  // ========================================================
+  //  VALIDACIONES DE VIVIENDA
+  // ========================================================
+
+  if (!form.value.vivienda.proyecto.trim()) {
+    errors.value.viviendaProyecto = "El proyecto es requerido";
+    valid = false;
+  }
+
+  if (!form.value.vivienda.tipoVivienda.trim()) {
+    errors.value.viviendaTipo = "El tipo de vivienda es requerido";
+    valid = false;
+  }
+
+  if (!form.value.vivienda.valorVivienda || form.value.vivienda.valorVivienda <= 0) {
+    errors.value.viviendaValor = "El valor de la vivienda debe ser mayor a 0";
+    valid = false;
+  }
+
+  // ========================================================
+  //  VALIDACIÓN: Valor máximo de vivienda según Tipo VIS
+  // ========================================================
+  const valorVivienda = Number(form.value.vivienda.valorVivienda) || 0;
+
+  // Definir límites según tipo de VIS
+  const limitesValorVIS = {
+    "VIS Priorizada en Lote Unifamiliar": 60000,
+    "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta": 70000,
+    "VIS en Lote Unifamiliar": 104500,
+    "VIS en Edificio Multifamiliar / Conjunto Residencial / Quinta": 130500,
+    "Ninguna": 130500  // Límite general
+  };
+
+  // Aplicar validación del valor máximo según tipo VIS
+  if (tipoVIS && limitesValorVIS[tipoVIS]) {
+    const limiteMaximo = limitesValorVIS[tipoVIS];
+
+    if (valorVivienda > limiteMaximo) {
+      errors.value.viviendaValor =
+          `Para el tipo de VIS "${tipoVIS}", el valor de la vivienda no debe superar S/ ${limiteMaximo.toLocaleString('es-PE')}`;
+      valid = false;
+    }
+  }
+
+  if (!form.value.vivienda.modalidadVivienda.trim()) {
+    errors.value.viviendaModalidad = "La modalidad de vivienda es requerida";
+    valid = false;
+  }
+
+  if (!form.value.vivienda.tipoVIS) {
+    errors.value.viviendaVIS = "El tipo de VIS es requerido";
+    valid = false;
+  }
+
+  // ========================================================
+  //  VALIDACIÓN: Relación Modalidad ↔ Tipo VIS
+  // ========================================================
+  if (modalidad && tipoVIS) {
+    // Para Construcción en Sitio Propio y Mejoramiento de Vivienda
+    if (modalidad === "Construcción en Sitio Propio" || modalidad === "Mejoramiento de Vivienda") {
+      if (tipoVIS !== "Ninguna") {
+        errors.value.viviendaVIS =
+            `Para la modalidad "${modalidad}" solo se permite seleccionar "Ninguna" como tipo de VIS.`;
+        valid = false;
+      }
+    }
+
+    // Para Adquisición de Vivienda
+    if (modalidad === "Adquisición de Vivienda") {
+      const tiposVISPermitidos = [
+        "VIS Priorizada en Lote Unifamiliar",
+        "VIS en Lote Unifamiliar",
+        "VIS en Edificio Multifamiliar / Conjunto Residencial / Quinta",
+        "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta"
+      ];
+
+      if (!tiposVISPermitidos.includes(tipoVIS)) {
+        errors.value.viviendaVIS =
+            `Para la modalidad "Adquisición de Vivienda" debe seleccionar un tipo de VIS válido (no "Ninguna").`;
+        valid = false;
+      }
+    }
+  }
+
+  if (!form.value.vivienda.ubicacion.trim()) {
+    errors.value.viviendaUbicacion = "La ubicación es requerida";
+    valid = false;
+  }
+
+  // ========================================================
+  //  VALIDACIÓN: Porcentaje de Cuota Inicial según Tipo VIS
+  // ========================================================
+  const config = visConfig[form.value.vivienda.tipoVIS];
+  const porcentaje = Number(form.value.vivienda.cuotaInicialPorcentaje) || 0;
+
+  if (config) {
+    if (config.mode === "range") {
+      // Para VIS Priorizadas: Entre 1% y 3% (estricto)
+      if (porcentaje < config.min || porcentaje > config.max) {
+        errors.value.viviendaCuotaInicial =
+            `Para "${tipoVIS}" el porcentaje de cuota inicial debe estar entre ${config.min}% y ${config.max}%`;
+        valid = false;
+      }
+    } else if (config.mode === "minimum") {
+      // Para VIS normales y "Ninguna": Mínimo X% pero puede ser más
+      if (porcentaje < config.min) {
+        errors.value.viviendaCuotaInicial =
+            `Para "${tipoVIS}" el porcentaje de cuota inicial debe ser mínimo ${config.min}%`;
+        valid = false;
+      }
+    }
+  }
+
+  return valid;
+}
+
+/* ===========================================================
    DNI solo números y 8 dígitos
    =========================================================== */
 function handleDniInput(e) {
@@ -233,9 +437,16 @@ function recalcularCuotaDesdePorcentaje() {
   const config = visConfig[form.value.vivienda.tipoVIS];
 
   if (config?.mode === "range") {
+    // Para rangos estrictos (VIS Priorizadas), limitar entre min y max
     if (porcentaje < config.min) porcentaje = config.min;
     if (porcentaje > config.max) porcentaje = config.max;
     form.value.vivienda.cuotaInicialPorcentaje = porcentaje;
+  } else if (config?.mode === "minimum") {
+    // Para mínimos, solo ajustar si es menor al mínimo permitido
+    if (porcentaje < config.min && porcentaje !== 0) {
+      porcentaje = config.min;
+      form.value.vivienda.cuotaInicialPorcentaje = porcentaje;
+    }
   }
 
   if (valor > 0 && porcentaje >= 0) {
@@ -260,11 +471,94 @@ function recalcularPorcentajeDesdeCuota() {
   }
 }
 
+/* ===========================================================
+   FILTRO DINÁMICO: Tipos VIS según Modalidad
+   =========================================================== */
+const tiposVISFiltrados = computed(() => {
+  const modalidad = form.value.vivienda.modalidadVivienda;
+
+  // Si no hay modalidad seleccionada, mostrar todos
+  if (!modalidad) return tiposVIS;
+
+  // Para Construcción en Sitio Propio y Mejoramiento de Vivienda
+  if (modalidad === "Construcción en Sitio Propio" || modalidad === "Mejoramiento de Vivienda") {
+    return tiposVIS.filter(vis => vis.value === "Ninguna");
+  }
+
+  // Para Adquisición de Vivienda
+  if (modalidad === "Adquisición de Vivienda") {
+    return tiposVIS.filter(vis => vis.value !== "Ninguna");
+  }
+
+  return tiposVIS;
+});
+
+/* ===========================================================
+   WATCHERS
+   =========================================================== */
+
+// Cuando el usuario escriba un proyecto:
+watch(
+    () => form.value.vivienda.proyecto,
+    (nombre) => {
+      if (!nombre) return;
+
+      const v = proyectosData.find((x) => x.proyecto === nombre);
+      if (!v) return;
+
+      // Sincroniza automáticamente el resto de campos
+      form.value.vivienda.tipoVivienda = v.tipo_vivienda;
+      form.value.vivienda.modalidadVivienda = v.modalidad_vivienda;
+      form.value.vivienda.valorVivienda = Number(v.valor_vivienda);
+      form.value.vivienda.tipoVIS = v.tipo_vis;
+      form.value.vivienda.ubicacion = v.ubicacion;
+
+      // Recalcular cuota inicial según porcentaje VIS
+      recalcularCuotaDesdePorcentaje();
+    }
+);
+
 /* Si cambia el valor de la vivienda, recalculamos cuota */
 watch(
     () => form.value.vivienda.valorVivienda,
     () => {
       recalcularCuotaDesdePorcentaje();
+    }
+);
+
+/* Cuando cambia la modalidad, resetear tipo VIS si no es compatible */
+watch(
+    () => form.value.vivienda.modalidadVivienda,
+    (nuevaModalidad) => {
+      const tipoVISActual = form.value.vivienda.tipoVIS;
+
+      // Si es Construcción o Mejoramiento y el tipo VIS no es "Ninguna"
+      if ((nuevaModalidad === "Construcción en Sitio Propio" || nuevaModalidad === "Mejoramiento de Vivienda")) {
+        if (tipoVISActual !== "Ninguna") {
+          form.value.vivienda.tipoVIS = "Ninguna";
+          form.value.vivienda.cuotaInicialPorcentaje = 0;
+        }
+        // Limpiar error de ingreso familiar cuando cambia a Construcción/Mejoramiento
+        errors.value.ingresoFamiliar = "";
+      }
+
+      // Si es Adquisición y el tipo VIS es "Ninguna"
+      if (nuevaModalidad === "Adquisición de Vivienda") {
+        if (tipoVISActual === "Ninguna" || !tipoVISActual) {
+          form.value.vivienda.tipoVIS = "";
+        }
+        // Limpiar error de ingreso familiar cuando cambia a Adquisición
+        errors.value.ingresoFamiliar = "";
+      }
+    }
+);
+
+/* Cuando cambia el tipo de VIS, limpiar error de ingreso familiar */
+watch(
+    () => form.value.vivienda.tipoVIS,
+    () => {
+      // Limpiar error de ingreso familiar cuando cambia el tipo VIS
+      errors.value.ingresoFamiliar = "";
     }
 );
 
@@ -279,100 +573,34 @@ watch(
         return;
       }
 
-      if (config.mode === "fixed") {
-        porcentajeBloqueado.value = !config.editable;
-        form.value.vivienda.cuotaInicialPorcentaje = config.value;
-        recalcularCuotaDesdePorcentaje();
-      } else if (config.mode === "range") {
-        porcentajeBloqueado.value = !config.editable;
-        // si está en 0, lo ponemos en el mínimo
-        if (
-            !form.value.vivienda.cuotaInicialPorcentaje ||
-            form.value.vivienda.cuotaInicialPorcentaje < config.min
-        ) {
+      // Todos los campos son editables ahora
+      porcentajeBloqueado.value = false;
+
+      if (config.mode === "range") {
+        // Para VIS Priorizadas: establecer en el mínimo si está vacío
+        if (!form.value.vivienda.cuotaInicialPorcentaje ||
+            form.value.vivienda.cuotaInicialPorcentaje < config.min) {
           form.value.vivienda.cuotaInicialPorcentaje = config.min;
         }
-        recalcularCuotaDesdePorcentaje();
+      } else if (config.mode === "minimum") {
+        // Para VIS normales: establecer en el mínimo si está vacío o es menor
+        if (nuevoTipo === "Ninguna") {
+          // Para "Ninguna" puede ser 0 o más
+          if (!form.value.vivienda.cuotaInicialPorcentaje) {
+            form.value.vivienda.cuotaInicialPorcentaje = 0;
+          }
+        } else {
+          // Para otros con mínimo 3%
+          if (!form.value.vivienda.cuotaInicialPorcentaje ||
+              form.value.vivienda.cuotaInicialPorcentaje < config.min) {
+            form.value.vivienda.cuotaInicialPorcentaje = config.min;
+          }
+        }
       }
+
+      recalcularCuotaDesdePorcentaje();
     }
 );
-
-/* ===========================================================
-   VALIDACIÓN SIMPLE
-   =========================================================== */
-function validateForm() {
-  let valid = true;
-  resetErrors();
-
-  if (!form.value.nombresApellidos.trim()) {
-    errors.value.nombresApellidos = "El nombre es requerido";
-    valid = false;
-  }
-
-  if (!form.value.dni || form.value.dni.length !== 8) {
-    errors.value.dni = "DNI inválido (8 dígitos)";
-    valid = false;
-  }
-
-  if (!form.value.edad || form.value.edad < 18) {
-    errors.value.edad = "Edad inválida (mayor o igual a 18)";
-    valid = false;
-  }
-
-  if (!form.value.ingresoFamiliar || form.value.ingresoFamiliar <= 0) {
-    errors.value.ingresoFamiliar = "El ingreso familiar debe ser mayor a 0";
-    valid = false;
-  }
-
-  if (!form.value.estadoCivil) {
-    errors.value.estadoCivil = "El estado civil es requerido";
-    valid = false;
-  }
-
-  // Vivienda
-  if (!form.value.vivienda.proyecto.trim()) {
-    errors.value.viviendaProyecto = "El proyecto es requerido";
-    valid = false;
-  }
-
-  if (!form.value.vivienda.tipoVivienda.trim()) {
-    errors.value.viviendaTipo = "El tipo de vivienda es requerido";
-    valid = false;
-  }
-
-  if (!form.value.vivienda.valorVivienda || form.value.vivienda.valorVivienda <= 0) {
-    errors.value.viviendaValor = "El valor de la vivienda debe ser mayor a 0";
-    valid = false;
-  }
-
-  if (!form.value.vivienda.modalidadVivienda.trim()) {
-    errors.value.viviendaModalidad = "La modalidad de vivienda es requerida";
-    valid = false;
-  }
-
-  if (!form.value.vivienda.tipoVIS) {
-    errors.value.viviendaVIS = "El tipo de VIS es requerido";
-    valid = false;
-  }
-
-  if (!form.value.vivienda.ubicacion.trim()) {
-    errors.value.viviendaUbicacion = "La ubicación es requerida";
-    valid = false;
-  }
-
-  // Validar porcentaje según tipo de VIS
-  const config = visConfig[form.value.vivienda.tipoVIS];
-  const porcentaje = Number(form.value.vivienda.cuotaInicialPorcentaje) || 0;
-
-  if (config?.mode === "range") {
-    if (porcentaje < config.min || porcentaje > config.max) {
-      errors.value.viviendaCuotaInicial = `El porcentaje debe estar entre ${config.min}% y ${config.max}%`;
-      valid = false;
-    }
-  }
-
-  return valid;
-}
 
 /* ===========================================================
    GUARDAR / CERRAR
@@ -382,6 +610,10 @@ function handleSubmit() {
 
   recalcularPorcentajeDesdeCuota();
   recalcularCuotaDesdePorcentaje();
+
+  form.value.aporte =
+      Number(form.value.vivienda.valorVivienda) *
+      (Number(form.value.vivienda.cuotaInicialPorcentaje) / 100);
 
   emit("save", { ...form.value });
 }
@@ -625,16 +857,15 @@ function handleClose() {
           <Dropdown
               v-model="form.vivienda.modalidadVivienda"
               :options="[
-      'Adquisición de Vivienda',
-      'Construcción en Sitio Propio',
-      'Mejoramiento de Vivienda'
-    ]"
+                'Adquisición de Vivienda',
+                'Construcción en Sitio Propio',
+                'Mejoramiento de Vivienda'
+              ]"
               placeholder="Seleccionar modalidad..."
               class="w-full"
               :class="{ 'p-invalid': errors.viviendaModalidad }"
               appendTo="body"
           />
-
           <small v-if="errors.viviendaModalidad" class="p-error">
             {{ errors.viviendaModalidad }}
           </small>
@@ -671,9 +902,10 @@ function handleClose() {
           <label class="form-label">Tipo de VIS</label>
           <Dropdown
               v-model="form.vivienda.tipoVIS"
-              :options="tiposVIS"
+              :options="tiposVISFiltrados"
               optionLabel="label"
               optionValue="value"
+              placeholder="Seleccionar tipo de VIS..."
               appendTo="body"
               class="w-full"
               :class="{ 'p-invalid': errors.viviendaVIS }"
