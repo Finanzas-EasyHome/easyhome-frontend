@@ -220,48 +220,47 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
             const userId = this.getCurrentUserId();
 
             const payload = {
-                // FK (ajusta los nombres según tu tabla)
-                user_id: userId, // asegúrate de tener esta columna en simulaciones_plan_de_pagos
-                cliente_tp_id: simulacion.clienteId ?? simulacion.cliente_tp_id,
-                vivienda_tp_id: simulacion.viviendaId ?? simulacion.vivienda_tp_id,
-                entidad_id: simulacion.entidadId,
 
-                // Datos básicos
+                user_id: userId,
+                cliente_tp_id: simulacion.cliente_id,
+                entidad_id: simulacion.entidad_financiera,
+
                 programa: simulacion.programa,
-                valor_vivienda: simulacion.valorVivienda,
-                cuota_inicial_porcentaje: simulacion.cuotaInicialPorcentaje,
-                cuota_inicial_monto: simulacion.cuotaInicialMonto,
-                bono_monto: simulacion.montoBono,
-                saldo_financiar: simulacion.saldoFinanciar,
-                tasa_descuento: Number(simulacion.tasaDescuento) / 100,
+                valor_vivienda: simulacion.valor_vivienda,
 
-                // Tasa
-                tipo_tasa: simulacion.tipoTasa, // 'TEA'
-                tasa_valor: simulacion.tasaValor,
+                cuota_inicial_porcentaje: simulacion.cuota_inicial_porcentaje,
+                cuota_inicial_monto: simulacion.cuota_inicial_monto,
 
-                // Costos
-                seguro_desgravamen: simulacion.seguroDesgravamen,
-                seguro_inmueble: simulacion.seguroInmueble,
-                gastos_notariales: simulacion.gastosNotariales,
-                gastos_registrales: simulacion.gastosRegistrales,
-                comision_envio: simulacion.comisionEnvio,
+                bono_monto: simulacion.bono_monto,
+                saldo_financiar: simulacion.saldo_financiar,
 
-                // Plazos y gracia
-                plazo_tipo: simulacion.plazoTipo, // 'años', 'meses', etc
-                plazo_valor: simulacion.plazoValor,
-                gracia_tipo: simulacion.graciaTipo,
-                gracia_meses: simulacion.graciaMeses,
+                tasa_descuento: simulacion.tasa_descuento,
+                tipo_tasa: "TEA",
+                tasa_valor: simulacion.tasa_valor,
 
-                // Fechas
-                fecha_inicio_pago: simulacion.fechaInicioPago, // 'YYYY-MM-DD'
+                seguro_desgravamen: simulacion.seguro_desgravamen,
+                seguro_inmueble: simulacion.seguro_inmueble,
+
+                tasacion: simulacion.tasacion,
+                gastos_notariales: simulacion.gastos_notariales,
+                gastos_registrales: simulacion.gastos_registrales,
+                cargos_administrativos: simulacion.cargos_administrativos,
+
+                comision_desembolso: simulacion.comision_desembolso,
+
+                plazo_tipo: simulacion.plazo_tipo,
+                plazo_valor: simulacion.plazo_valor,
+                gracia_tipo: simulacion.gracia_tipo,
+                gracia_meses: simulacion.gracia_meses,
+
+                fecha_inicio_pago: simulacion.fecha_inicio_pago,
                 fecha_creacion: new Date().toISOString(),
 
-                // Resultados
-                monto_financiado: simulacion.montoFinanciado,
+                monto_financiado: simulacion.monto_financiado,
                 tcea: simulacion.tcea,
                 van: simulacion.van,
                 tir: simulacion.tir,
-                cuota: simulacion.cuota,
+                cuota: simulacion.cuota
             };
 
             const { data, error } = await supabase
