@@ -39,25 +39,35 @@ export class CalcularSimulacion {
      */
     mapearCamposParaRepository(sim) {
 
-        sim.programa = sim.programaObjetivo; // rename
-        sim.entidadId = sim.entidadFinanciera; // rename
-        sim.tasaValor = sim.tasaInteres; // rename
-        sim.plazoValor = sim.plazoPrestamo; // rename
-        sim.cuota = sim.cuotaMensual; // rename
-        sim.comisionEnvio = sim.comisionDesembolso; // rename
+        sim.programa = sim.programa_objetivo;
+        sim.valor_vivienda = sim.valor_vivienda;
+        sim.bono_monto = sim.monto_bono;
 
-        sim.saldoFinanciar = sim.montoFinanciado; // required by Supabase
-        sim.tasaDescuento = sim.tasaDescuento;
-        // campos de gracia
-        sim.graciaTipo = sim.tipoPeriodoGracia;
-        sim.graciaMeses = sim.periodoGracia;
+        sim.cuota_inicial_monto = sim.cuota_inicial;
+        sim.cuota_inicial_porcentaje = sim.cuota_inicial_porcentaje;
 
-        // Esto queda igual:
-        // sim.seguroDesgravamen
-        // sim.seguroInmueble
-        // sim.tasacion
-        // sim.gastosNotariales
-        // etc.
+        sim.saldo_financiar = sim.monto_financiado;
+
+        sim.tasa_valor = sim.tasa_interes;
+        sim.tasa_descuento = sim.tasa_descuento;
+
+        sim.plazo_tipo = "meses";
+        sim.plazo_valor = sim.plazo_prestamo;
+
+        sim.gracia_tipo = sim.tipo_periodo_gracia;
+        sim.gracia_meses = sim.periodo_gracia;
+
+// costos
+        sim.seguro_desgravamen = sim.seguroDesgravamen;
+        sim.seguro_inmueble = sim.seguroInmueble;
+
+        sim.tasacion = sim.tasacion;
+        sim.gastos_notariales = sim.gastosNotariales;
+        sim.gastos_registrales = sim.gastosRegistrales;
+        sim.cargos_administrativos = sim.cargosAdministrativos;
+
+        sim.comision_desembolso = sim.comisionDesembolso;
+        sim.cuota = sim.cuotaMensual;
     }
 
     /**

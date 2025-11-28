@@ -47,33 +47,60 @@ export class GuardarSimulacion {
      */
     mapearAFormatoSupabase(sim) {
         return {
-            cliente_id: sim.clienteId,
-            entidad_id: sim.entidadId,
+            id: sim.id ?? crypto.randomUUID(),
+
+            // relación
+            cliente_tp_id: sim.clienteTpId,
+            cliente_ncmv_id: sim.clienteNcmvId,
+            vivienda_tp_id: sim.viviendaTpId,
+            vivienda_ncmv_id: sim.viviendaNcmvId,
+
+            // datos base
             programa: sim.programa,
-            tasa: sim.tasaValor,
-            plazo: sim.plazoValor,
-            cuota_inicial: sim.cuotaInicial,
-            monto_financiar: sim.saldoFinanciar,
-            cuota_mensual: sim.cuota,
-            tcea: sim.tcea,
-            van: sim.van,
-            tir: sim.tir,
+            valor_vivienda: sim.valorVivienda,
+            bono_monto: sim.bonoMonto,
+
+            // cuota inicial
+            cuota_inicial_porcentaje: sim.cuotaInicialPorcentaje,
+            cuota_inicial_monto: sim.cuotaInicial,
+
+            // financiado
+            saldo_financiar: sim.saldoFinanciar,
+
+            // tasas
+            tipo_tasa: "TEA",
+            tasa_valor: sim.tasaValor,
             tasa_descuento: sim.tasaDescuento,
 
-            // costos adicionales
+            // plazo
+            plazo_tipo: "años",
+            plazo_valor: sim.plazoValor,
+
+            // periodo gracia
+            gracia_tipo: sim.graciaTipo,
+            gracia_meses: sim.graciaMeses,
+
+            // costos
             seguro_desgravamen: sim.seguroDesgravamen,
             seguro_inmueble: sim.seguroInmueble,
             tasacion: sim.tasacion,
             gastos_notariales: sim.gastosNotariales,
+            gastos_registrales: sim.gastosRegistrales,
             comision_envio: sim.comisionEnvio,
 
-            // gracia
-            gracia_tipo: sim.graciaTipo,
-            gracia_meses: sim.graciaMeses,
+            // resultados
+            cuota_mensual: sim.cuota,
+            tcea: sim.tcea,
+            van: sim.van,
+            tir: sim.tir,
 
-            // datos de control
+            // fechas
             fecha_inicio_pago: sim.fechaInicioPago,
+            fecha_creacion: new Date().toISOString(),
+
+            // usuario
             user_id: sim.userId
         };
     }
+
 }

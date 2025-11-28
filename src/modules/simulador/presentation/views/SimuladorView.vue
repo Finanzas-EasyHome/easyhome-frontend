@@ -34,6 +34,36 @@ const formatPercent = (value) => {
   if (!value && value !== 0) return "0%";
   return (Number(value) * 100).toFixed(2) + "%";
 };
+const mapToSimulacionData = (form) => ({
+  cliente_id: form.clienteId,
+  cliente_nombre: form.clienteNombre,
+  programa_objetivo: form.programaObjetivo,
+
+  valor_vivienda: form.valorVivienda,
+  cuota_inicial: form.cuotaInicial,
+  cuota_inicial_porcentaje: form.cuotaInicialPorcentaje,
+  monto_bono: form.montoBono,
+
+  monto_financiado: form.montoFinanciado,
+  fecha_inicio_pago: form.fechaInicioPago,
+
+  tasa_descuento: form.tasaDescuento,
+  entidad_financiera: form.entidadFinanciera,
+
+  tasa_interes: Number(String(form.tasaInteres)),
+  plazo_prestamo: form.plazoPrestamo,
+
+  tipo_periodo_gracia: form.tipoPeriodoGracia,
+  periodo_gracia: form.periodoGracia,
+
+  seguro_desgravamen: form.seguroDesgravamen,
+  seguro_inmueble: form.seguroInmueble,
+  tasacion: form.tasacion,
+  gastos_notariales: form.gastosNotariales,
+  cargos_administrativos: form.cargosAdministrativos,
+  gastos_registrales: form.gastosRegistrales,
+  comision_desembolso: form.comisionDesembolso
+});
 
 // State del formulario
 const formData = ref({
@@ -60,6 +90,8 @@ const formData = ref({
   tasacion: 0,
   seguroInmueble: 0,
   gastosNotariales: 0,
+  cargosAdministrativos: 0,
+  gastosRegistrales: 0,
   comisionDesembolso: 0
 });
 
@@ -418,7 +450,10 @@ const handleCalcular = async () => {
     }
 
     updateMontoFinanciado();
-    await calcular(formData.value);
+    const simulacionData = mapToSimulacionData(formData.value);
+    console.log("DATA ENVIADA A CALCULAR:", simulacionData);
+
+    await calcular(simulacionData);
 
     toast.add({
       severity: 'success',
@@ -603,7 +638,10 @@ onMounted(async () => {
               <Dropdown
                   id="programa"
                   v-model="formData.programaObjetivo"
-                  :options="programasVivienda"
+                  :options="[
+    { label: 'Techo Propio', value: 'techoPropio' },
+    { label: 'Mi Vivienda', value: 'miVivienda' },
+  ]"
                   optionLabel="label"
                   optionValue="value"
                   placeholder="Seleccionar programa"
