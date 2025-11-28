@@ -715,7 +715,7 @@ function handleClose() {
           <InputText
               v-model="form.edad"
               type="number"
-              placeholder="XX"
+              placeholder="Ej: 18"
               :class="{ 'p-invalid': errors.edad }"
           />
           <small v-if="errors.edad" class="p-error">
@@ -873,7 +873,7 @@ function handleClose() {
 
         <!-- Cuota inicial -->
         <div class="col-12 md:col-6">
-          <label class="form-label">¿Cuánto dará de cuota inicial? (S/.)</label>
+          <label class="form-label">Cuota inicial (S/.)</label>
           <div class="cuota-input-group">
             <InputText
                 v-model="form.vivienda.cuotaInicialPorcentaje"
