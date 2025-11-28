@@ -32,7 +32,7 @@ export class Cliente {
         };
 
         // ===============================
-        // 🔥 SINCRONIZAR CUOTA ↔ PORCENTAJE
+        //  SINCRONIZAR CUOTA ↔ PORCENTAJE
         // ===============================
         const valor = Number(this.vivienda.valorVivienda) || 0;
         const cuota = Number(this.vivienda.cuotaInicial) || 0;

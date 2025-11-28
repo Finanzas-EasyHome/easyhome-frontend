@@ -68,7 +68,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
             .select(`
             *,
             vivienda:vivienda_techo_propio!vivienda_techo_propio_fk_cliente_fkey (
-            id,
+                id,
                 proyecto,
                 tipo_vivienda,
                 valor_vivienda,
@@ -83,6 +83,8 @@ export class ClienteRepositoryImpl extends ClienteRepository {
 
         if (error) throw new Error("Error al obtener cliente");
 
+        const v = Array.isArray(data.vivienda) ? data.vivienda[0] : data.vivienda;
+
         return {
             id: data.id,
             nombresApellidos: data.nombres_completos,
@@ -94,31 +96,32 @@ export class ClienteRepositoryImpl extends ClienteRepository {
             esMigranteRetornado: data.migrante_retornado,
             esPersonaDesplazada: data.persona_desplazada,
 
-            aporte: data.vivienda
-                ? Number(data.vivienda.valor_vivienda || 0) *
-                (Number(data.vivienda.porcentaje_cuota_inicial || 0) / 100)
+            aporte: v
+                ? Number(v.valor_vivienda || 0) *
+                (Number(v.porcentaje_cuota_inicial || 0) / 100)
                 : 0,
 
-            vivienda: data.vivienda
+            vivienda: v
                 ? {
-                    id: data.vivienda.id,
-                    proyecto: data.vivienda.proyecto,
-                    tipoVivienda: data.vivienda.tipo_vivienda,
-                    valorVivienda: data.vivienda.valor_vivienda,
-                    modalidadVivienda: data.vivienda.modalidad_vivienda,
-                    cuotaInicial: Number(data.vivienda.valor_vivienda) * (Number(data.vivienda.porcentaje_cuota_inicial) / 100),
-                    cuotaInicialPorcentaje: data.vivienda.porcentaje_cuota_inicial,
-                    tipoVIS: data.vivienda.tipo_vis,
-                    ubicacion: data.vivienda.ubicacion,
+                    id: v.id,
+                    proyecto: v.proyecto,
+                    tipoVivienda: v.tipo_vivienda,
+                    valorVivienda: v.valor_vivienda,
+                    modalidadVivienda: v.modalidad_vivienda,
+                    cuotaInicial:
+                        Number(v.valor_vivienda) *
+                        (Number(v.porcentaje_cuota_inicial) / 100),
+                    cuotaInicialPorcentaje: v.porcentaje_cuota_inicial,
+                    tipoVIS: v.tipo_vis,
+                    ubicacion: v.ubicacion,
                 }
                 : null
         };
     }
 
-
     async create(cliente) {
 
-        // 1️⃣ Crear cliente
+        // 1 Crear cliente
         const { data: newClient, error: clienteError } = await supabase
             .from("clientes_techo_propio")
             .insert({
@@ -138,7 +141,7 @@ export class ClienteRepositoryImpl extends ClienteRepository {
 
         if (clienteError) throw new Error(clienteError.message);
 
-        // 2️⃣ Crear vivienda
+        // 2️ Crear vivienda
         const vivienda = cliente.vivienda;
 
         const { error: viviendaError } = await supabase
@@ -162,44 +165,76 @@ export class ClienteRepositoryImpl extends ClienteRepository {
 
 
     async update(id, cliente) {
-        // 1. actualizar cliente
-        const { error } = await supabase
+        console.log('===== INICIO UPDATE =====');
+        console.log('ID del cliente:', id);
+        console.log('Datos recibidos:', cliente);
+
+        const valorVivienda = Number(cliente.vivienda?.valorVivienda) || 0;
+        const porcentaje = Number(cliente.vivienda?.cuotaInicialPorcentaje) || 0;
+        const aporteCalculado = Number((valorVivienda * (porcentaje / 100)).toFixed(2));
+
+        console.log('Cálculo de aporte:', {
+            valorVivienda,
+            porcentaje,
+            aporteCalculado
+        });
+
+        // Actualizar cliente
+        const { error: clienteError } = await supabase
             .from("clientes_techo_propio")
             .update({
                 nombres_completos: cliente.nombresApellidos,
                 dni: cliente.dni,
                 edad: cliente.edad,
-                ingreso_familiar: cliente.ingresoFamiliar,
-                aporte: cliente.aporte,
+                ingreso_familiar: Number(cliente.ingresoFamiliar),
+                aporte: aporteCalculado,
                 estado_civil: cliente.estadoCivil,
                 discapacidad: cliente.tieneDiscapacidad,
                 migrante_retornado: cliente.esMigranteRetornado,
-                persona_desplazada: cliente.esPersonaDesplazada,
-                fecha_actualizacion: new Date()
+                persona_desplazada: cliente.esPersonaDesplazada
+
             })
             .eq("id", id);
 
-        if (error) throw new Error("Error al actualizar cliente");
+        if (clienteError) {
+            console.error('Error al actualizar cliente:', clienteError);
+            throw new Error(`Error al actualizar cliente: ${clienteError.message}`);
+        }
 
-        // 2. actualizar vivienda
-        await supabase
+        console.log('Cliente actualizado correctamente');
+
+        if (!cliente.vivienda?.id) {
+            console.error('No hay ID de vivienda');
+            throw new Error("No se encontró el ID de la vivienda para actualizar");
+        }
+
+        console.log('ID de vivienda:', cliente.vivienda.id);
+
+        // Actualizar vivienda
+        const { error: viviendaError } = await supabase
             .from("vivienda_techo_propio")
             .update({
                 proyecto: cliente.vivienda.proyecto,
                 tipo_vivienda: cliente.vivienda.tipoVivienda,
-                valor_vivienda: cliente.vivienda.valorVivienda,
+                valor_vivienda: Number(cliente.vivienda.valorVivienda),
                 modalidad_vivienda: cliente.vivienda.modalidadVivienda,
-                porcentaje_cuota_inicial: cliente.vivienda.cuotaInicialPorcentaje,
+                porcentaje_cuota_inicial: Number(cliente.vivienda.cuotaInicialPorcentaje),
                 tipo_vis: cliente.vivienda.tipoVIS,
-                ubicacion: cliente.vivienda.ubicacion,
-                fecha_actualizacion: new Date()
+                ubicacion: cliente.vivienda.ubicacion
+
             })
-            .eq("fk_cliente", id);
+            .eq("id", cliente.vivienda.id);
+
+        if (viviendaError) {
+            console.error('Error al actualizar vivienda:', viviendaError);
+            throw new Error(`Error al actualizar vivienda: ${viviendaError.message}`);
+        }
+
+        console.log('Vivienda actualizada correctamente');
+        console.log('===== FIN UPDATE =====');
 
         return true;
     }
-
-
     // ============================================================
     //  ELIMINAR CLIENTE (CASCADE)
     // ============================================================
