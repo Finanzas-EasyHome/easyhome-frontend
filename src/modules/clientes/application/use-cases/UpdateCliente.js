@@ -34,8 +34,18 @@ export class UpdateCliente {
                 throw new Error(validation.errors.join(', '));
             }
 
+            // Preparar datos para actualizar
+            const datosParaActualizar = cliente.toUpdateDTO();
+
+            // Asegurarse de que el ID de la vivienda se mantenga
+            if (clienteExistente.vivienda?.id) {
+                datosParaActualizar.vivienda.id = clienteExistente.vivienda.id;
+            }
+
+            console.log('Datos a actualizar:', datosParaActualizar); // Para debug
+
             // Actualizar en el repositorio
-            const clienteActualizado = await this.repository.update(id, cliente.toUpdateDTO());
+            const clienteActualizado = await this.repository.update(id, datosParaActualizar);
 
             return clienteActualizado;
         } catch (error) {
