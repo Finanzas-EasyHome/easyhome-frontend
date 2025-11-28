@@ -52,9 +52,6 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
             ncmvTeaMax: Number(entidad.ncmv_tea_max ?? 0),
         }));
     }
-    async getBonoTechoPropio(modalidad, tipoVis) {
-        throw new Error("Method getBonoTechoPropio() must be implemented");
-    }
 
 
     /**
@@ -126,6 +123,7 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
                     min: data.cargos_admin_min,
                     max: data.cargos_admin_max
                 },
+
                 comisionDesembolso: Number(data.comision_envio ?? 0)
             };
 
@@ -139,7 +137,7 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
             const { data, error } = await supabase
                 .from("bono_techo_propio")
                 .select("monto")
-                .eq("modalidad", modalidad)
+                .eq("modalidad_vivienda", modalidad)
                 .eq("tipo_vis", tipoVis)
                 .maybeSingle();
 
@@ -184,6 +182,9 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
             if (error) {
                 console.error("Error obteniendo cliente/vivienda:", error);
                 throw new Error("No se pudo obtener los datos del cliente");
+            }
+            if (Array.isArray(data.vivienda)) {
+                data.vivienda = data.vivienda[0] ?? null;
             }
 
             return data;
@@ -232,6 +233,7 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
                 cuota_inicial_monto: simulacion.cuotaInicialMonto,
                 bono_monto: simulacion.montoBono,
                 saldo_financiar: simulacion.saldoFinanciar,
+                tasa_descuento: Number(simulacion.tasaDescuento) / 100,
 
                 // Tasa
                 tipo_tasa: simulacion.tipoTasa, // 'TEA'

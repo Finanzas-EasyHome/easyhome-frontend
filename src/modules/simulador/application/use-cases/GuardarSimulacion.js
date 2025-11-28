@@ -58,6 +58,7 @@ export class GuardarSimulacion {
             tcea: sim.tcea,
             van: sim.van,
             tir: sim.tir,
+            tasa_descuento: sim.tasaDescuento,
 
             // costos adicionales
             seguro_desgravamen: sim.seguroDesgravamen,

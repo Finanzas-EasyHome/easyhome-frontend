@@ -28,6 +28,13 @@ const {
 
 const { allClientes, fetchClientes } = useClientes();
 
+const tasaDescuentoError = ref('');
+
+const formatPercent = (value) => {
+  if (!value && value !== 0) return "0%";
+  return (Number(value) * 100).toFixed(2) + "%";
+};
+
 // State del formulario
 const formData = ref({
   clienteId: null,
@@ -37,9 +44,11 @@ const formData = ref({
   cuotaInicialPorcentaje: 0,
   valorVivienda: 0,
   montoBono: 0,
+  modalidadVivienda: '',
+  tipoVis: '',
   montoFinanciado: 0,
   fechaInicioPago: new Date(),
-  // ⚠️ Aquí se guarda el ID (uuid) de la entidad en Supabase
+  tasaDescuento: 12,
   entidadFinanciera: '',
   tipoTasa: 'TEA',
   tasaInteres: 0,
@@ -139,6 +148,8 @@ watch(() => formData.value.clienteId, async (newClienteId) => {
     formData.value.clienteNombre = '';
     formData.value.valorVivienda = 0;
     formData.value.cuotaInicial = 0;
+    formData.value.modalidadVivienda = '';
+    formData.value.tipoVis = '';
     formData.value.cuotaInicialPorcentaje = 0;
     formData.value.programaObjetivo = '';
   }
@@ -163,10 +174,10 @@ watch(
         const tasas = await fetchTasasEntidad(newValue, programa);
         tasasEntidad.value = tasas;
 
-        if (tasas.promedio) {
-          formData.value.tasaInteres = tasas.promedio;
+        if (tasas.promedio || tasas.promedio === 0) {
+          // Convertir 0.15 → 15.00
+          formData.value.tasaInteres = (Number(tasas.promedio) * 100).toFixed(2);
         }
-
         validateTEA();
       } catch (err) {
         console.error('Error al cargar tasas de entidad:', err);
@@ -174,7 +185,22 @@ watch(
       }
     }
 );
+watch(() => formData.value.tasaDescuento, () => {
+  const tasa = Number(formData.value.tasaDescuento);
 
+  if (isNaN(tasa)) {
+    tasaDescuentoError.value = '';
+    return;
+  }
+
+  if (tasa < 12) {
+    tasaDescuentoError.value = 'La tasa de descuento no puede ser menor a 12%';
+  } else if (tasa > 25) {
+    tasaDescuentoError.value = 'La tasa de descuento no puede ser mayor a 25%';
+  } else {
+    tasaDescuentoError.value = '';
+  }
+});
 watch(
     () => formData.value.programaObjetivo,
     async () => {
@@ -188,8 +214,8 @@ watch(
         );
         tasasEntidad.value = tasas;
 
-        if (tasas.promedio) {
-          formData.value.tasaInteres = tasas.promedio;
+        if (tasas.promedio || tasas.promedio === 0) {
+          formData.value.tasaInteres = (Number(tasas.promedio) * 100).toFixed(2);
         }
 
         validateTEA();
@@ -255,19 +281,19 @@ const cargarDatosCliente = async (clienteId) => {
     // ================================
     //  CLIENTE
     // ================================
-    formData.value.clienteNombre = `${info.nombres} ${info.apellidos}`;
+    formData.value.clienteNombre = info.nombres_completos;
     formData.value.clienteId = info.id;
 
     // ================================
     //  VIVIENDA
     // ================================
-    if (info.vivienda && info.vivienda.length > 0) {
-
-      const v = info.vivienda[0];   // ✔ CORRECTO: tomar primer registro 1→1
+    if (info.vivienda) {
+      const v = info.vivienda;  // ✔ CORRECTO: tomar primer registro 1→1
+      formData.value.modalidadVivienda = v.modalidad_vivienda;
+      formData.value.tipoVis = v.tipo_vis;
 
       // Programa objetivo
-      formData.value.programaObjetivo =
-          v.modalidad_vivienda || v.tipo_vis || "";
+      formData.value.programaObjetivo = "techoPropio";
 
       // Datos financieros
       formData.value.valorVivienda = Number(v.valor_vivienda ?? 0);
@@ -280,8 +306,8 @@ const cargarDatosCliente = async (clienteId) => {
           (formData.value.cuotaInicialPorcentaje / 100);
       try {
         const bono = await fetchBonoTechoPropio(
-            v.modalidad_vivienda,
-            v.tipo_vis
+            formData.value.modalidadVivienda,
+            formData.value.tipoVis
         );
         formData.value.montoBono = bono;
       } catch {
@@ -299,7 +325,7 @@ const cargarDatosCliente = async (clienteId) => {
     toast.add({
       severity: "success",
       summary: "Datos cargados",
-      detail: `Datos del cliente ${info.nombresApellidos} cargados correctamente`,
+      detail: `Datos del cliente ${info.nombres_completos} cargados correctamente`,
       life: 2000,
     });
 
@@ -317,12 +343,11 @@ const cargarDatosCliente = async (clienteId) => {
 
 
 const validateTEA = () => {
-  if (!formData.value.tasaInteres) {
+  if (!formData.value.tasaInteres && formData.value.tasaInteres !== 0) {
     teaError.value = '';
     return true;
   }
-
-  const tea = parseFloat(formData.value.tasaInteres);
+  const tea = parseFloat(formData.value.tasaInteres)/ 100;
   const min = tasasEntidad.value.min ?? 0;
   const max = tasasEntidad.value.max ?? 0;
 
@@ -333,12 +358,12 @@ const validateTEA = () => {
   }
 
   if (tea < min) {
-    teaError.value = `La TEA no puede ser menor a ${min}%`;
+    teaError.value = `La TEA no puede ser menor a ${(min* 100)}%`;
     return false;
   }
 
   if (tea > max) {
-    teaError.value = `La TEA no puede ser mayor a ${max}%`;
+    teaError.value = `La TEA no puede ser mayor a ${(max* 100)}%`;
     return false;
   }
 
@@ -377,6 +402,16 @@ const handleCalcular = async () => {
         severity: 'error',
         summary: 'Error',
         detail: teaError.value,
+        life: 3000
+      });
+      return;
+    }
+
+    if (tasaDescuentoError.value) {
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: tasaDescuentoError.value,
         life: 3000
       });
       return;
@@ -644,7 +679,7 @@ onMounted(async () => {
               <label for="montoFinanciado">Saldo a financiar (S/.)</label>
               <InputNumber
                   id="montoFinanciado"
-                  :value="montoFinanciadoCalculado"
+                  v-model="formData.montoFinanciado"
                   mode="decimal"
                   :minFractionDigits="2"
                   :maxFractionDigits="2"
@@ -654,7 +689,9 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div class="col-12 md:col-6">
+          <div class="col-12">
+            <div class="grid">
+          <div class="col-12 md:col-3">
             <div class="field">
               <label for="fechaInicio">Fecha de Inicio de Pago</label>
               <Calendar
@@ -667,6 +704,35 @@ onMounted(async () => {
               />
             </div>
           </div>
+
+          <!-- TASA DE DESCUENTO -->
+          <div class="col-12 md:col-3">
+            <div class="field">
+              <label for="tasaDescuento">Tasa de descuento</label>
+
+              <InputNumber
+                  id="tasaDescuento"
+                  v-model="formData.tasaDescuento"
+                  suffix="%"
+                  :minFractionDigits="2"
+                  :maxFractionDigits="2"
+                  :min="12"
+                  :max="25"
+                  class="w-full"
+                  :class="{ 'p-invalid': tasaDescuentoError }"
+                  placeholder="12.00%"
+              />
+
+              <small v-if="tasaDescuentoError" class="p-error">
+                {{ tasaDescuentoError }}
+              </small>
+
+              <small v-else class="p-help">
+                Rango permitido: 12% - 25%
+              </small>
+            </div>
+          </div>
+
 
           <div class="col-12 md:col-6">
             <div class="field">
@@ -682,6 +748,8 @@ onMounted(async () => {
                   :disabled="loading"
                   appendTo="body"
               />
+            </div>
+          </div>
             </div>
           </div>
 
@@ -708,14 +776,15 @@ onMounted(async () => {
               </div>
               <small v-if="teaError" class="p-error">{{ teaError }}</small>
               <small v-else-if="tasasEntidad.min && tasasEntidad.max" class="p-help">
-                Rango permitido: {{ tasasEntidad.min }}% - {{ tasasEntidad.max }}%
+                Rango permitido: {{ formatPercent(tasasEntidad.min) }} - {{ formatPercent(tasasEntidad.max) }}
               </small>
+
             </div>
           </div>
 
           <div class="col-12 md:col-6">
             <div class="field">
-              <label for="costos">Costos/Gastos adicionales</label>
+              <label for="costos">Costes/Gastos adicionales</label>
               <div class="flex gap-2">
                 <InputText
                     id="costos"

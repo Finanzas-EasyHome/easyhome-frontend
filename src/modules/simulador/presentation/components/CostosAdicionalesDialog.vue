@@ -7,8 +7,19 @@ const props = defineProps({
   visible: Boolean,
   costos: Object
 });
+const errors = ref({
+  seguroDesgravamen: "",
+  seguroInmueble: "",
+  tasacion: "",
+  gastosNotariales: "",
+  gastosRegistrales: "",
+  cargosAdministrativos: ""
+});
 
 const emit = defineEmits(['update:visible', 'guardar']);
+const hasErrors = computed(() =>
+    Object.values(errors.value).some(e => e !== "")
+);
 
 // ----- usamos un solo repositorio -----
 const repository = new SimuladorRepositoryImpl();
@@ -26,7 +37,9 @@ const formData = ref({
   tasacion: 0,
   seguroInmueble: 0,
   gastosNotariales: 0,
-  comisionDesembolso: 0
+  comisionDesembolso: 0,
+  cargosAdministrativos: 0,
+  gastosRegistrales: 0,
 });
 
 const loading = ref(false);
@@ -55,13 +68,22 @@ watch(() => formData.value.entidadFinanciera, async (entidadId) => {
     const costos = await repository.getCostosEntidad(entidadId);
 
     // Guardar rangos completos
-    rangos.value = costos;
+    rangos.value = {
+      seguroDesgravamen: costos.seguroDesgravamen,
+      seguroInmueble: costos.seguroInmueble,
+      tasacion: costos.tasacion,
+      gastosNotariales: costos.gastosNotariales,
+      cargosAdministrativos: costos.cargosAdministrativos,
+      gastosRegistrales: costos.gastosRegistrales
 
+    };
     // ⚡ Opción A: asignar SIEMPRE valor mínimo permitido
-    formData.value.seguroDesgravamen = costos.seguroDesgravamen.min;
+    formData.value.seguroDesgravamen = costos.seguroDesgravamen.min * 100;
     formData.value.tasacion = costos.tasacion.min;
-    formData.value.seguroInmueble = costos.seguroInmueble.min;
+    formData.value.seguroInmueble = costos.seguroInmueble.min* 100;
     formData.value.gastosNotariales = costos.gastosNotariales.min;
+    formData.value.cargosAdministrativos = costos.cargosAdministrativos.min;
+    formData.value.gastosRegistrales = costos.gastosRegistrales.min;
     formData.value.comisionDesembolso = costos.comisionDesembolso;
 
   } catch (error) {
@@ -74,41 +96,88 @@ watch(() => formData.value.entidadFinanciera, async (entidadId) => {
 watch(formData, (nuevo) => {
   if (!rangos.value.seguroDesgravamen) return;
 
-  const validar = (valor, min, max) => {
-    if (valor < min) return min;
-    if (valor > max) return max;
+  const validar = (campo, valor, min, max, tipo = "monto") => {
+    valor = Number(valor);
+    min = Number(min);
+    max = Number(max);
+
+    if (valor < min) {
+      errors.value[campo] =
+          tipo === "porcentaje"
+              ? `El valor mínimo permitido es ${(min).toFixed(3)}%`
+              : `El valor mínimo permitido es S/ ${min.toFixed(2)}`;
+      return min;
+    }
+
+    if (valor > max) {
+      errors.value[campo] =
+          tipo === "porcentaje"
+              ? `El valor máximo permitido es ${(max).toFixed(3)}%`
+              : `El valor máximo permitido es S/ ${max.toFixed(2)}`;
+      return max;
+    }
+
+    errors.value[campo] = "";
     return valor;
   };
 
+
   nuevo.seguroDesgravamen = validar(
+      "seguroDesgravamen",
       nuevo.seguroDesgravamen,
-      rangos.value.seguroDesgravamen.min,
-      rangos.value.seguroDesgravamen.max
+      rangos.value.seguroDesgravamen.min* 100,
+      rangos.value.seguroDesgravamen.max* 100,
+      "porcentaje"
   );
 
   nuevo.seguroInmueble = validar(
+      "seguroInmueble",
       nuevo.seguroInmueble,
-      rangos.value.seguroInmueble.min,
-      rangos.value.seguroInmueble.max
+      rangos.value.seguroInmueble.min* 100,
+      rangos.value.seguroInmueble.max* 100,
+      "porcentaje"
   );
 
   nuevo.tasacion = validar(
+      "tasacion",
       nuevo.tasacion,
       rangos.value.tasacion.min,
-      rangos.value.tasacion.max
+      rangos.value.tasacion.max,
+      "monto"
   );
 
   nuevo.gastosNotariales = validar(
+      "gastosNotariales",
       nuevo.gastosNotariales,
       rangos.value.gastosNotariales.min,
-      rangos.value.gastosNotariales.max
+      rangos.value.gastosNotariales.max,
+      "monto"
   );
-});
+  nuevo.cargosAdministrativos = validar(
+      "cargosAdministrativos",
+      nuevo.cargosAdministrativos,
+      rangos.value.cargosAdministrativos.min,
+      rangos.value.cargosAdministrativos.max,
+      "monto"
+  );
+
+  nuevo.gastosRegistrales = validar(
+      "gastosRegistrales",
+      nuevo.gastosRegistrales,
+      rangos.value.gastosRegistrales.min,
+      rangos.value.gastosRegistrales.max,
+      "monto"
+  );
+}, { deep: true });
 
 
 // Guardar
 const handleGuardar = () => {
-  emit("guardar", { ...formData.value });
+  const payload = { ...formData.value };
+
+  payload.seguroDesgravamen = payload.seguroDesgravamen / 100;
+  payload.seguroInmueble = payload.seguroInmueble / 100;
+  emit("guardar", payload );
   emit("update:visible", false);
 };
 
@@ -170,6 +239,13 @@ const handleEditar = () => {
                 placeholder="0.00"
                 :disabled="loading"
             />
+            <small v-if="errors.seguroDesgravamen" class="error">
+              {{ errors.seguroDesgravamen }}
+            </small>
+            <small class="rango-info">
+              Rango permitido: {{ (rangos.seguroDesgravamen?.min * 100).toFixed(3) }}% -
+              {{ (rangos.seguroDesgravamen?.max * 100).toFixed(3) }}%
+            </small>
           </div>
         </div>
 
@@ -187,6 +263,14 @@ const handleEditar = () => {
                 placeholder="0.00"
                 :disabled="loading"
             />
+            <small v-if="errors.tasacion" class="error">
+              {{ errors.tasacion }}
+            </small>
+            <small class="rango-info">
+              Rango permitido:
+              S/ {{ rangos.tasacion?.min?.toFixed(2) }} -
+              S/ {{ rangos.tasacion?.max?.toFixed(2) }}
+            </small>
           </div>
         </div>
 
@@ -204,12 +288,15 @@ const handleEditar = () => {
                 placeholder="0.00"
                 :disabled="loading"
             />
+            <small v-if="errors.seguroInmueble" class="error">
+              {{ errors.seguroInmueble }}
+            </small>
           </div>
         </div>
 
         <div class="col-12 md:col-6">
           <div class="field">
-            <label for="notariales">Gastos notariales y registrales</label>
+            <label for="notariales">Gastos notariales </label>
             <InputNumber
                 id="notariales"
                 v-model="formData.gastosNotariales"
@@ -221,6 +308,66 @@ const handleEditar = () => {
                 placeholder="0.00"
                 :disabled="loading"
             />
+            <small v-if="errors.gastosNotariales" class="error">
+              {{ errors.gastosNotariales }}
+            </small>
+            <small class="rango-info">
+              Rango permitido:
+              S/ {{ rangos.gastosNotariales?.min?.toFixed(2) }} -
+              S/ {{ rangos.gastosNotariales?.max?.toFixed(2) }}
+            </small>
+          </div>
+        </div>
+
+
+        <div class="col-12 md:col-6">
+          <div class="field">
+            <label for="cargosAdmin">Cargos administrativos</label>
+            <InputNumber
+                id="cargosAdmin"
+                v-model="formData.cargosAdministrativos"
+                mode="currency"
+                currency="PEN"
+                locale="es-PE"
+                :minFractionDigits="2"
+                class="w-full"
+                placeholder="0.00"
+                :disabled="loading"
+            />
+            <small v-if="errors.cargosAdministrativos" class="error">
+              {{ errors.cargosAdministrativos }}
+            </small>
+            <small class="rango-info">
+              Rango permitido:
+              S/ {{ rangos.cargosAdministrativos?.min?.toFixed(2) }} -
+              S/ {{ rangos.cargosAdministrativos?.max?.toFixed(2) }}
+            </small>
+          </div>
+        </div>
+
+        <!-- Gastos registrales -->
+        <div class="col-12 md:col-6">
+          <div class="field">
+            <label for="gastosRegistrales">Gastos registrales</label>
+            <InputNumber
+                id="gastosRegistrales"
+                v-model="formData.gastosRegistrales"
+                mode="currency"
+                currency="PEN"
+                locale="es-PE"
+                :minFractionDigits="2"
+                class="w-full"
+                placeholder="0.00"
+                :disabled="loading"
+            />
+            <small v-if="errors.gastosRegistrales" class="error">
+              {{ errors.gastosRegistrales }}
+            </small>
+            <small class="rango-info">
+              Rango permitido:
+              S/ {{ rangos.gastosRegistrales?.min?.toFixed(2) }} -
+              S/ {{ rangos.gastosRegistrales?.max?.toFixed(2) }}
+            </small>
           </div>
         </div>
 
@@ -258,7 +405,7 @@ const handleEditar = () => {
             icon="pi pi-check"
             class="p-button-success"
             @click="handleGuardar"
-            :disabled="loading"
+            :disabled="loading || hasErrors"
         />
       </div>
     </template>
@@ -269,6 +416,12 @@ const handleEditar = () => {
 .costos-form {
   padding: 0.5rem 0;
   position: relative;
+}
+.error {
+  color: #dc2626; /* rojo bonito */
+  font-size: 0.75rem;
+  margin-top: 4px;
+  display: block;
 }
 
 .loading-overlay {
