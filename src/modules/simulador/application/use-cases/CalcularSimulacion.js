@@ -1,6 +1,6 @@
 // src/modules/simulador/application/use-cases/CalcularSimulacion.js
 
-import { Simulacion } from '../../domain/entities/Simulacion.js';
+import { Simulacion } from '/src/modules/simulador/domain/entities/Simulacion.js';
 
 export class CalcularSimulacion {
     constructor(repository) {
@@ -9,22 +9,29 @@ export class CalcularSimulacion {
 
     async execute(simData) {
         try {
-            // 🔄 1. CREATE ENTITY
-            const simulacion = Simulacion.create(simData);
-            const validation = simulacion.validate();
-            if (!validation.valid) throw new Error(validation.errors.join(', '));
+            // 1️⃣ Crear entidad de dominio
+            const simulacion = new Simulacion(simData);
 
-            // 🔄 2. Monto a financiar
+            // 2️⃣ Validar datos
+            const validation = simulacion.validate();
+            if (!validation.valid) {
+                throw new Error(validation.errors.join(', '));
+            }
+
+            // 3️⃣ Calcular monto financiado
             simulacion.calculateMontoFinanciado();
 
-            // 🔄 3. Cuota + cronograma
+            // 4️⃣ Sincronizar ENTRADA para cálculos (camelCase)
+            this.sincronizarEntrada(simulacion);
+
+            // 5️⃣ Calcular cuota y cronograma (método francés)
             this.calcularCuotaYCronograma(simulacion);
 
-            // 🔄 4. TCEA, VAN, TIR
+            // 6️⃣ Calcular indicadores financieros
             this.calcularIndicadoresFinancieros(simulacion);
 
-            // 🔄 5. Adaptar nombres a lo que Supabase espera
-            this.mapearCamposParaRepository(simulacion);
+            // 7️⃣ Sincronizar SALIDA (camelCase → snake_case)
+            this.sincronizarSalida(simulacion);
 
             return simulacion;
 
@@ -35,105 +42,109 @@ export class CalcularSimulacion {
     }
 
     /**
-     * ADAPTACIÓN DE CAMPOS → los nombres nuevos que exige el repositorio
+     * Convertir campos snake_case → camelCase para cálculo interno
      */
-    mapearCamposParaRepository(sim) {
+    sincronizarEntrada(sim) {
+        sim.valorVivienda = Number(sim.valor_vivienda ?? sim.valorVivienda ?? 0);
+        sim.cuotaInicial = Number(sim.cuota_inicial ?? sim.cuotaInicial ?? 0);
+        sim.cuotaInicialPorcentaje = Number(sim.cuota_inicial_porcentaje ?? sim.cuotaInicialPorcentaje ?? 0);
+        sim.montoBono = Number(sim.monto_bono ?? sim.montoBono ?? 0);
+        sim.montoFinanciado = Number(sim.monto_financiado ?? sim.montoFinanciado ?? 0);
 
-        sim.programa = sim.programa_objetivo;
-        sim.valor_vivienda = sim.valor_vivienda;
-        sim.bono_monto = sim.monto_bono;
+        sim.tasaInteres = Number(sim.tasa_interes ?? sim.tasaInteres ?? 0);
+        sim.plazoPrestamo = Number(sim.plazo_prestamo ?? sim.plazoPrestamo ?? 0);
 
-        sim.cuota_inicial_monto = sim.cuota_inicial;
-        sim.cuota_inicial_porcentaje = sim.cuota_inicial_porcentaje;
+        sim.periodoGracia = Number(sim.periodo_gracia ?? sim.periodoGracia ?? 0);
+        sim.tipoPeriodoGracia = sim.tipo_periodo_gracia ?? sim.tipoPeriodoGracia ?? 'ninguno';
 
-        sim.saldo_financiar = sim.monto_financiado;
+        sim.fechaInicioPago = sim.fecha_inicio_pago ?? sim.fechaInicioPago;
 
-        sim.tasa_valor = sim.tasa_interes;
-        sim.tasa_descuento = sim.tasa_descuento;
-
-        sim.plazo_tipo = "meses";
-        sim.plazo_valor = sim.plazo_prestamo;
-
-        sim.gracia_tipo = sim.tipo_periodo_gracia;
-        sim.gracia_meses = sim.periodo_gracia;
-
-// costos
-        sim.seguro_desgravamen = sim.seguroDesgravamen;
-        sim.seguro_inmueble = sim.seguroInmueble;
-
-        sim.tasacion = sim.tasacion;
-        sim.gastos_notariales = sim.gastosNotariales;
-        sim.gastos_registrales = sim.gastosRegistrales;
-        sim.cargos_administrativos = sim.cargosAdministrativos;
-
-        sim.comision_desembolso = sim.comisionDesembolso;
-        sim.cuota = sim.cuotaMensual;
+        sim.seguroDesgravamen = Number(sim.seguro_desgravamen ?? sim.seguroDesgravamen ?? 0);
+        sim.seguroInmueble = Number(sim.seguro_inmueble ?? sim.seguroInmueble ?? 0);
+        sim.tasacion = Number(sim.tasacion ?? sim.tasacion ?? 0);
+        sim.gastosNotariales = Number(sim.gastos_notariales ?? sim.gastosNotariales ?? 0);
+        sim.gastosRegistrales = Number(sim.gastos_registrales ?? sim.gastosRegistrales ?? 0);
+        sim.cargosAdministrativos = Number(sim.cargos_administrativos ?? sim.cargosAdministrativos ?? 0);
+        sim.comisionDesembolso = Number(sim.comision_desembolso ?? sim.comisionDesembolso ?? 0);
     }
 
     /**
-     * Calcular cuota y cronograma
+     * Sincronizar resultados camelCase → snake_case
+     */
+    sincronizarSalida(sim) {
+        sim.cuota_mensual = sim.cuotaMensual;
+        sim.total_intereses = sim.totalIntereses;
+        sim.cronograma_pagos = sim.cronogramaPagos;
+
+        // TCEA, VAN, TIR ya en camelCase pero se usan así
+    }
+
+    /**
+     * Cálculo método francés + manejo de gracia
      */
     calcularCuotaYCronograma(sim) {
 
-        const montoFinanciado = sim.montoFinanciado;
+        const monto = sim.montoFinanciado;
         const tasaMensual = this.convertirTEAaTEM(sim.tasaInteres);
-        const plazoMeses = sim.plazoPrestamo;
+        const plazo = sim.plazoPrestamo;
 
-        const periodoGracia = sim.periodoGracia || 0;
-        const tipoGracia = sim.tipoPeriodoGracia || "ninguno";
+        const gMeses = sim.periodoGracia;
+        const gTipo = sim.tipoPeriodoGracia;
 
-        let montoAFinanciar = montoFinanciado;
+        // Ajuste por gracia parcial (capitalizando intereses)
+        let saldo = monto;
+        let saldoAjustado = monto;
 
-        if (tipoGracia === "parcial" && periodoGracia > 0) {
-            montoAFinanciar = montoFinanciado * Math.pow(1 + tasaMensual, periodoGracia);
+        if (gTipo === "parcial" && gMeses > 0) {
+            saldoAjustado = monto * Math.pow(1 + tasaMensual, gMeses);
         }
 
-        const mesesAmortizacion = plazoMeses - periodoGracia;
+        const nAmortizacion = plazo - gMeses;
 
-        const cuotaBase = montoAFinanciar *
-            (tasaMensual * Math.pow(1 + tasaMensual, mesesAmortizacion)) /
-            (Math.pow(1 + tasaMensual, mesesAmortizacion) - 1);
+        // Cuota base método francés
+        const cuotaBase =
+            saldoAjustado *
+            (tasaMensual * Math.pow(1 + tasaMensual, nAmortizacion)) /
+            (Math.pow(1 + tasaMensual, nAmortizacion) - 1);
 
-        const costoMensual = this.calcularCostosAdicionalesMensuales(sim);
+        const costosMensuales = this.calcularCostosAdicionalesMensuales(sim);
 
-        sim.cuotaMensual = Math.round((cuotaBase + costoMensual) * 100) / 100;
+        sim.cuotaMensual = this.redondear2(cuotaBase + costosMensuales);
 
+        // Generar cronograma
         sim.cronogramaPagos = this.generarCronogramaPagos(
             sim,
-            montoFinanciado,
+            monto,
             tasaMensual,
             cuotaBase,
-            costoMensual,
-            montoAFinanciar
+            costosMensuales,
+            saldoAjustado
         );
 
+        // Total intereses
         sim.totalIntereses = sim.cronogramaPagos.reduce(
-            (total, p) => total + p.interes, 0
+            (acc, p) => acc + p.interes, 0
         );
     }
 
+    /**
+     * Convierte TEA % → TEM mensual
+     */
     convertirTEAaTEM(tea) {
         return Math.pow(1 + tea / 100, 1 / 12) - 1;
     }
 
     calcularCostosAdicionalesMensuales(sim) {
-        let total = 0;
-
-        if (sim.seguroDesgravamen > 0)
-            total += sim.seguroDesgravamen;
-
-        if (sim.seguroInmueble > 0)
-            total += sim.seguroInmueble;
-
-        return total;
+        return (sim.seguroDesgravamen ?? 0) + (sim.seguroInmueble ?? 0);
     }
 
-    generarCronogramaPagos(sim, saldoInicial, tasaMensual, cuotaBase, costos, montoAjustado) {
+    generarCronogramaPagos(sim, saldoInicial, tasaMensual, cuotaBase, costos, saldoParcial) {
+
         const cronograma = [];
         const fechaInicio = new Date(sim.fechaInicioPago);
 
-        const periodoGracia = sim.periodoGracia || 0;
-        const tipoGracia = sim.tipoPeriodoGracia;
+        const gMeses = sim.periodoGracia;
+        const gTipo = sim.tipoPeriodoGracia;
 
         for (let i = 1; i <= sim.plazoPrestamo; i++) {
 
@@ -141,43 +152,45 @@ export class CalcularSimulacion {
             fechaPago.setMonth(fechaPago.getMonth() + i);
 
             let interes = saldoInicial * tasaMensual;
-            let amortizacion = 0;
+            let amort = 0;
             let cuota = 0;
-            let seguros = 0;
+            let seguros = costos;
 
-            if (i <= periodoGracia) {
-                if (tipoGracia === "total") {
+            if (i <= gMeses) {
+                if (gTipo === "total") {
                     cuota = interes;
-                    seguros = costos;
-                } else if (tipoGracia === "parcial") {
+                    amort = 0;
+                }
+                else if (gTipo === "parcial") {
                     saldoInicial *= (1 + tasaMensual);
+                    interes = saldoInicial * tasaMensual;
+                    cuota = 0;
+                    amort = 0;
                 }
             } else {
-                if (i === periodoGracia + 1 && tipoGracia === "parcial") {
-                    saldoInicial = montoAjustado;
+                if (i === gMeses + 1 && gTipo === "parcial") {
+                    saldoInicial = saldoParcial;
                     interes = saldoInicial * tasaMensual;
                 }
-
                 cuota = cuotaBase;
-                amortizacion = cuotaBase - interes;
-                seguros = costos;
+                amort = cuotaBase - interes;
             }
 
             const cuotaTotal = cuota + seguros;
-            const saldoFinal = saldoInicial - amortizacion;
+            const saldoFinal = saldoInicial - amort;
 
             cronograma.push({
                 numeroCuota: i,
                 fechaPago: fechaPago.toISOString().split("T")[0],
-                saldoInicial: Number(saldoInicial.toFixed(2)),
-                cuotaBase: Number(cuota.toFixed(2)),
-                interes: Number(interes.toFixed(2)),
-                amortizacion: Number(amortizacion.toFixed(2)),
-                seguros: Number(seguros.toFixed(2)),
-                cuotaTotal: Number(cuotaTotal.toFixed(2)),
-                saldoFinal: Number(saldoFinal.toFixed(2)),
-                enPeriodoGracia: i <= periodoGracia,
-                tipoPeriodoGracia: i <= periodoGracia ? tipoGracia : null
+                saldoInicial: this.redondear2(saldoInicial),
+                cuotaBase: this.redondear2(cuota),
+                interes: this.redondear2(interes),
+                amortizacion: this.redondear2(amort),
+                seguros: this.redondear2(seguros),
+                cuotaTotal: this.redondear2(cuotaTotal),
+                saldoFinal: this.redondear2(saldoFinal),
+                enPeriodoGracia: i <= gMeses,
+                tipoPeriodoGracia: i <= gMeses ? gTipo : null
             });
 
             saldoInicial = saldoFinal;
@@ -186,10 +199,15 @@ export class CalcularSimulacion {
         return cronograma;
     }
 
+    /**
+     * TCEA / VAN / TIR
+     */
     calcularIndicadoresFinancieros(sim) {
 
         const costosIniciales =
-            sim.tasacion + sim.gastosNotariales + sim.comisionDesembolso;
+            (sim.tasacion ?? 0) +
+            (sim.gastosNotariales ?? 0) +
+            (sim.comisionDesembolso ?? 0);
 
         const totalCuotas = sim.cronogramaPagos.reduce(
             (sum, p) => sum + p.cuotaTotal,
@@ -198,11 +216,9 @@ export class CalcularSimulacion {
 
         const costoTotal = totalCuotas + costosIniciales + sim.cuotaInicial;
 
-        const tcea = (costoTotal / sim.valorVivienda - 1) * 100;
+        sim.tcea = Number(((costoTotal / sim.valorVivienda - 1) * 100).toFixed(2));
 
-        sim.tcea = Number(tcea.toFixed(2));
-
-        // VAN (10%)
+        // VAN con tasa 10% anual
         const r = 0.10 / 12;
         let van = -sim.montoFinanciado;
 
@@ -212,7 +228,11 @@ export class CalcularSimulacion {
 
         sim.van = Number(van.toFixed(2));
 
+        // TIR aproximada
         sim.tir = Number((this.convertirTEAaTEM(sim.tasaInteres) * 12 * 100).toFixed(2));
     }
 
+    redondear2(v) {
+        return Math.round(v * 100) / 100;
+    }
 }

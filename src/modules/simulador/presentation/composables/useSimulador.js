@@ -4,6 +4,7 @@ import { ref, computed } from 'vue';
 import { SimuladorRepositoryImpl } from '/src/modules/simulador/infrastructure/repositories/SimuladorRepositoryImpl.js';
 import { CalcularSimulacion } from '/src/modules/simulador/application/use-cases/CalcularSimulacion.js';
 import { GuardarSimulacion } from '/src/modules/simulador/application/use-cases/GuardarSimulacion.js';
+import { Simulacion } from '/src/modules/simulador/domain/entities/Simulacion.js';
 
 /**
  * Composable para manejar la lógica del simulador
@@ -37,8 +38,11 @@ export const useSimulador = () => {
         loading.value = true;
         error.value = null;
         try {
+            // Crear instancia de la clase Simulacion
             const resultado = await calcularSimulacion.execute(datosSimulacion);
+            // Guardar
             simulacionActual.value = resultado;
+
             return resultado;
         } catch (e) {
             error.value = e.message || 'Error al calcular la simulación';
@@ -53,6 +57,8 @@ export const useSimulador = () => {
      * Guarda la simulación actual en el historial
      */
     const guardar = async () => {
+        console.log("SIMULACIÓN LISTA PARA GUARDAR:", simulacionActual.value);
+        console.log("ENTIDAD FINANCIERA:", simulacionActual.value?.entidad_financiera);
         if (!simulacionActual.value) {
             throw new Error('No hay simulación para guardar');
         }

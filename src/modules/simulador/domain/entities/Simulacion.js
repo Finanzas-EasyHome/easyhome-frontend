@@ -2,102 +2,188 @@
 
 export class Simulacion {
     constructor(data = {}) {
-
         /** -------------------------
-         *  DATOS DEL CLIENTE
+         *  CLIENTE
          * ------------------------- */
-        this.cliente_id = data.cliente_id || null;     // UUID real en Supabase
-        this.cliente_nombre = data.cliente_nombre || '';
+        this.clienteId = data.clienteId || data.cliente_id || null;
+        this.clienteNombre = data.clienteNombre || data.cliente_nombre || '';
 
         /** -------------------------
          *  PROGRAMA
          * ------------------------- */
-        this.programa_objetivo = data.programa_objetivo || '';
+        this.programa = data.programa || data.programa_objetivo || '';
 
         /** -------------------------
-         *  DATOS FINANCIEROS
+         *  VIVIENDA
          * ------------------------- */
-        this.valor_vivienda = data.valor_vivienda || 0;
-        this.cuota_inicial = data.cuota_inicial || 0;
-        this.cuota_inicial_porcentaje = data.cuota_inicial_porcentaje || 0;
-        this.monto_bono = data.monto_bono || 0;
-        this.monto_financiado = data.monto_financiado || 0;
+        this.valorVivienda = Number(
+            data.valorVivienda ?? data.valor_vivienda ?? 0
+        );
+
+        this.cuotaInicial = Number(
+            data.cuotaInicial ??
+            data.cuota_inicial_monto ??
+            data.cuota_inicial ??
+            0
+        );
+
+        this.cuotaInicialPorcentaje = Number(
+            data.cuotaInicialPorcentaje ??
+            data.cuota_inicial_porcentaje ??
+            0
+        );
+
+        this.montoBono = Number(
+            data.montoBono ?? data.monto_bono ?? data.bono_monto ?? 0
+        );
+
+        this.montoFinanciado = Number(
+            data.montoFinanciado ??
+            data.monto_financiado ??
+            data.saldo_financiar ??
+            0
+        );
 
         /** -------------------------
          *  PRÉSTAMO
          * ------------------------- */
-        this.fecha_inicio_pago = data.fecha_inicio_pago || null;
-        this.tipo_tasa = data.tipo_tasa || 'TEA';
-        this.tasa_interes = data.tasa_interes || 0;
-        this.plazo_prestamo = data.plazo_prestamo || 0;
+        this.fechaInicioPago = data.fechaInicioPago || data.fecha_inicio_pago || null;
 
-        this.periodo_gracia = data.periodo_gracia || 0;
-        this.tipo_periodo_gracia = data.tipo_periodo_gracia || 'ninguno';
+        this.tipoTasa = data.tipoTasa || data.tipo_tasa || 'TEA';
+        this.tasaInteres = Number(
+            data.tasaInteres ?? data.tasa_valor ?? data.tasa_interes ?? 0
+        );
+        this.tasaDescuento = Number(
+            data.tasaDescuento ?? data.tasa_descuento ?? 0
+        );
+
+        this.plazoPrestamo = Number(
+            data.plazoPrestamo ??
+            data.plazo_valor ??
+            data.plazo_prestamo ??
+            0
+        );
+
+        this.plazoTipo = data.plazoTipo || data.plazo_tipo || 'meses';
+
+        this.periodoGracia = Number(
+            data.periodoGracia ??
+            data.gracia_meses ??
+            data.periodo_gracia ??
+            0
+        );
+
+        this.tipoPeriodoGracia =
+            data.tipoPeriodoGracia ||
+            data.gracia_tipo ||
+            data.tipo_periodo_gracia ||
+            'ninguno';
 
         /** -------------------------
          *  COSTOS ADICIONALES
          * ------------------------- */
-        this.entidad_financiera = data.entidad_financiera || '';
-        this.seguro_desgravamen = data.seguro_desgravamen || 0;
-        this.tasacion = data.tasacion || 0;
-        this.seguro_inmueble = data.seguro_inmueble || 0;
-        this.gastos_notariales = data.gastos_notariales || 0;
-        this.comision_desembolso = data.comision_desembolso || 0;
+        this.entidadId =
+            data.entidadId || data.entidad_id || data.entidad_financiera || null;
+
+        this.seguroDesgravamen = Number(
+            data.seguroDesgravamen ?? data.seguro_desgravamen ?? 0
+        );
+        this.seguroInmueble = Number(
+            data.seguroInmueble ?? data.seguro_inmueble ?? 0
+        );
+
+        this.tasacion = Number(data.tasacion ?? data.tasacion_min ?? 0);
+        this.gastosNotariales = Number(
+            data.gastosNotariales ?? data.gastos_notariales ?? 0
+        );
+        this.gastosRegistrales = Number(
+            data.gastosRegistrales ?? data.gastos_registrales ?? 0
+        );
+
+        this.cargosAdmin = Number(
+            data.cargosAdmin ?? data.cargos_admin ?? 0
+        );
+        this.comisionDesembolso = Number(
+            data.comisionDesembolso ??
+            data.comision_envio ??
+            data.comision_desembolso ??
+            0
+        );
 
         /** -------------------------
          *  RESULTADOS
          * ------------------------- */
-        this.cuota_mensual = data.cuota_mensual || 0;
-        this.total_intereses = data.total_intereses || 0;
-        this.tcea = data.tcea || 0;
-        this.van = data.van || 0;
-        this.tir = data.tir || 0;
+        this.cuotaMensual = Number(
+            data.cuotaMensual ?? data.cuota ?? data.cuota_mensual ?? 0
+        );
+        this.totalIntereses = Number(
+            data.totalIntereses ?? data.total_intereses ?? 0
+        );
+        this.tcea = Number(data.tcea ?? 0);
+        this.van = Number(data.van ?? 0);
+        this.tir = Number(data.tir ?? 0);
 
-        // Cronograma se guarda como JSON en Supabase
-        this.cronograma_pagos = data.cronograma_pagos || [];
+        this.cronogramaPagos =
+            data.cronogramaPagos || data.cronograma_pagos || [];
 
         /** -------------------------
          *  META
          * ------------------------- */
-        this.user_id = data.user_id || null;
-        this.created_at = data.created_at || null;
-        this.updated_at = data.updated_at || null;
+        this.userId = data.userId || data.user_id || null;
+        this.createdAt = data.createdAt || data.created_at || null;
+        this.updatedAt = data.updatedAt || data.updated_at || null;
     }
 
-    /** Crear una instancia */
+    /** Factory */
     static create(data) {
         return new Simulacion(data);
+    }
+
+    /** -------------------------
+     *  MÉTODOS DE NEGOCIO
+     * ------------------------- */
+
+    // Lo llama CalcularSimulacion
+    calculateMontoFinanciado() {
+        this.montoFinanciado =
+            (this.valorVivienda || 0) -
+            (this.cuotaInicial || 0) -
+            (this.montoBono || 0);
+
+        if (this.montoFinanciado < 0) this.montoFinanciado = 0;
+
+        return this.montoFinanciado;
     }
 
     /** Validaciones */
     validate() {
         const errors = [];
 
-        if (!this.cliente_nombre.trim()) errors.push('El nombre del cliente es requerido');
-        if (!this.programa_objetivo.trim()) errors.push('El programa objetivo es requerido');
-        if (!this.valor_vivienda || this.valor_vivienda <= 0)
-            errors.push('El valor de la vivienda debe ser mayor a 0');
+        if (!this.clienteId) errors.push('Debe seleccionar un cliente.');
+        if (!this.programa) errors.push('Debe elegir un programa.');
 
-        if (this.cuota_inicial < 0) errors.push('La cuota inicial no puede ser negativa');
-        if (this.cuota_inicial >= this.valor_vivienda)
-            errors.push('La cuota inicial no puede ser mayor o igual al valor de la vivienda');
+        if (this.valorVivienda <= 0)
+            errors.push('El valor de la vivienda debe ser mayor a 0.');
 
-        if (!this.fecha_inicio_pago) errors.push('La fecha de inicio de pago es requerida');
+        if (this.cuotaInicial < 0)
+            errors.push('La cuota inicial no puede ser negativa.');
 
-        if (this.tasa_interes <= 0) errors.push('La tasa de interés debe ser mayor a 0');
-        if (this.tasa_interes > 100) errors.push('La tasa no puede ser > 100%');
+        if (this.cuotaInicial >= this.valorVivienda)
+            errors.push(
+                'La cuota inicial no puede ser mayor o igual al valor de la vivienda.'
+            );
 
-        if (this.plazo_prestamo < 60 || this.plazo_prestamo > 300)
-            errors.push('El plazo debe estar entre 60 y 300 meses');
+        if (!this.entidadId)
+            errors.push('Debe seleccionar una entidad financiera.');
 
-        if (!this.entidad_financiera) errors.push('Debe elegir una entidad financiera');
+        if (this.tasaInteres <= 0)
+            errors.push('La tasa de interés debe ser mayor a 0.');
 
-        if (this.periodo_gracia < 0) errors.push('El periodo de gracia no puede ser negativo');
-        if (this.periodo_gracia > 12) errors.push('El periodo de gracia no puede ser > 12 meses');
+        if (!this.fechaInicioPago)
+            errors.push('Debe elegir la fecha de inicio de pago.');
 
-        if (this.periodo_gracia > 0 &&
-            !['total', 'parcial'].includes(this.tipo_periodo_gracia))
-            errors.push('Debe indicar tipo de periodo de gracia');
+        if (this.plazoPrestamo <= 0)
+            errors.push('Debe indicar el plazo del préstamo.');
 
         return {
             valid: errors.length === 0,
@@ -105,49 +191,51 @@ export class Simulacion {
         };
     }
 
-    /** Calcula monto financiado */
-    calculateMontoFinanciado() {
-        this.monto_financiado =
-            this.valor_vivienda - this.cuota_inicial - this.monto_bono;
-        return this.monto_financiado;
-    }
-
-    /** Convertir a JSON para Supabase */
+    /** -------------------------
+     *  Conversión a JSON (Supabase)
+     * ------------------------- */
     toJSON() {
         return {
-            cliente_id: this.cliente_id,
-            cliente_nombre: this.cliente_nombre,
-            programa_objetivo: this.programa_objetivo,
-            valor_vivienda: this.valor_vivienda,
-            cuota_inicial: this.cuota_inicial,
-            cuota_inicial_porcentaje: this.cuota_inicial_porcentaje,
-            monto_bono: this.monto_bono,
-            monto_financiado: this.monto_financiado,
-            fecha_inicio_pago: this.fecha_inicio_pago,
-            tipo_tasa: this.tipo_tasa,
-            tasa_interes: this.tasa_interes,
-            plazo_prestamo: this.plazo_prestamo,
-            periodo_gracia: this.periodo_gracia,
-            tipo_periodo_gracia: this.tipo_periodo_gracia,
+            user_id: this.userId,
 
-            entidad_financiera: this.entidad_financiera,
-            seguro_desgravamen: this.seguro_desgravamen,
+            entidad_id: this.entidadId,
+            cliente_tp_id: this.clienteId,
+
+            programa: this.programa,
+            valor_vivienda: this.valorVivienda,
+
+            cuota_inicial_porcentaje: this.cuotaInicialPorcentaje,
+            cuota_inicial_monto: this.cuotaInicial,
+
+            bono_monto: this.montoBono,
+            saldo_financiar: this.montoFinanciado,
+
+            tipo_tasa: this.tipoTasa,
+            tasa_valor: this.tasaInteres,
+            tasa_descuento: this.tasaDescuento,
+
+            seguro_desgravamen: this.seguroDesgravamen,
+            seguro_inmueble: this.seguroInmueble,
+            cargos_admin: this.cargosAdmin,
             tasacion: this.tasacion,
-            seguro_inmueble: this.seguro_inmueble,
-            gastos_notariales: this.gastos_notariales,
-            comision_desembolso: this.comision_desembolso,
+            gastos_notariales: this.gastosNotariales,
+            gastos_registrales: this.gastosRegistrales,
+            comision_envio: this.comisionDesembolso,
 
-            cuota_mensual: this.cuota_mensual,
-            total_intereses: this.total_intereses,
+            plazo_tipo: this.plazoTipo,
+            plazo_valor: this.plazoPrestamo,
+            gracia_tipo: this.tipoPeriodoGracia,
+            gracia_meses: this.periodoGracia,
+
+            fecha_inicio_pago: this.fechaInicioPago,
+            fecha_creacion: this.createdAt || new Date().toISOString(),
+
+            cuota: this.cuotaMensual,
             tcea: this.tcea,
             van: this.van,
             tir: this.tir,
-            cronograma_pagos: this.cronograma_pagos,
 
-            user_id: this.user_id,
-            created_at: this.created_at,
-            updated_at: this.updated_at
+            cronograma_pagos: this.cronogramaPagos
         };
     }
 }
-
