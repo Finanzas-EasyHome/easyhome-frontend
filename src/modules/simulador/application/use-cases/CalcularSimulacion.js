@@ -47,7 +47,7 @@ export class CalcularSimulacion {
         sim.comisionEnvio = sim.comisionDesembolso; // rename
 
         sim.saldoFinanciar = sim.montoFinanciado; // required by Supabase
-
+        sim.tasaDescuento = sim.tasaDescuento;
         // campos de gracia
         sim.graciaTipo = sim.tipoPeriodoGracia;
         sim.graciaMeses = sim.periodoGracia;

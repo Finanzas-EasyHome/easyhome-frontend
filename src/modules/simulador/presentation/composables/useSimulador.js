@@ -196,10 +196,11 @@ export const useSimulador = () => {
 
     const fetchBonoTechoPropio = async (modalidad, tipoVis) => {
         try {
-            const monto = await repository.getBonoTechoPropio(modalidad, tipoVis);
-            return monto;
-        } catch (e) {
-            console.error("Error al obtener bono techo propio:", e);
+            const repo = new SimuladorRepositoryImpl();
+            const bono = await repo.getBonoTechoPropio(modalidad, tipoVis);
+            return bono ?? 0;
+        } catch (error) {
+            console.error("Error obteniendo bono:", error);
             return 0;
         }
     };
