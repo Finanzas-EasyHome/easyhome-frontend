@@ -50,7 +50,7 @@ const mapToSimulacionData = (form) => ({
   saldo_financiar: Number(form.montoFinanciado),
   monto_financiado: Number(form.montoFinanciado),
 
-  // préstamo
+  // prÃ©stamo
   fecha_inicio_pago: form.fechaInicioPago,
   tasa_interes: Number(form.tasaInteres),  // TEA %
   tasa_valor: Number(form.tasaInteres),    // mismo valor para Simulacion
@@ -109,7 +109,7 @@ const formData = ref({
   comisionDesembolso: 0
 });
 
-// Estados de los diálogos
+// Estados de los diÃ¡logos
 const costosDialogVisible = ref(false);
 const cronogramaDialogVisible = ref(false);
 
@@ -117,7 +117,7 @@ const cronogramaDialogVisible = ref(false);
 const entidadSeleccionada = ref(null);
 const teaError = ref('');
 
-// ✅ NUEVO: aquí guardamos el rango de TEA que viene de Supabase
+// âœ… NUEVO: aquÃ­ guardamos el rango de TEA que viene de Supabase
 const tasasEntidad = ref({
   min: 0,
   max: 0,
@@ -146,11 +146,11 @@ const clientesOptions = computed(() =>
 
 const plazosOptions = computed(() => {
   const plazos = [];
-  for (let años = 5; años <= 25; años++) {
+  for (let anios = 5; anios <= 25; anios++) {
     plazos.push({
-      label: `${años} años`,
-      value: años * 12
-    });
+      label: `${anios} anios`,
+      value: anios * 12
+  });
   }
   return plazos;
 });
@@ -221,7 +221,7 @@ watch(
         tasasEntidad.value = tasas;
 
         if (tasas.promedio || tasas.promedio === 0) {
-          // Convertir 0.15 → 15.00
+          // Convertir 0.15 â†’ 15.00
           formData.value.tasaInteres = (Number(tasas.promedio) * 100).toFixed(2);
         }
         validateTEA();
@@ -334,7 +334,7 @@ const cargarDatosCliente = async (clienteId) => {
     //  VIVIENDA
     // ================================
     if (info.vivienda) {
-      const v = info.vivienda;  // ✔ CORRECTO: tomar primer registro 1→1
+      const v = info.vivienda;  // âœ” CORRECTO: tomar primer registro 1â†’1
       formData.value.modalidadVivienda = v.modalidad_vivienda;
       formData.value.tipoVis = v.tipo_vis;
 
@@ -357,7 +357,7 @@ const cargarDatosCliente = async (clienteId) => {
         );
         formData.value.montoBono = bono;
       } catch {
-        formData.value.montoBono = 0;   // si falla → 0
+        formData.value.montoBono = 0;   // si falla â†’ 0
       }
 
       // Saldo a financiar
@@ -381,7 +381,7 @@ const cargarDatosCliente = async (clienteId) => {
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: 'No se pudo cargar la información del cliente',
+      detail: 'No se pudo cargar la informacion del cliente',
       life: 3000
     });
   }
@@ -426,7 +426,7 @@ const handleCalcular = async () => {
     if (!formData.value.clienteNombre) {
       toast.add({
         severity: 'warn',
-        summary: 'Atención',
+        summary: 'Atencion',
         detail: 'Debe seleccionar un cliente',
         life: 3000
       });
@@ -436,7 +436,7 @@ const handleCalcular = async () => {
     if (!formData.value.entidadFinanciera) {
       toast.add({
         severity: 'warn',
-        summary: 'Atención',
+        summary: 'Atencion',
         detail: 'Debe seleccionar una entidad financiera',
         life: 3000
       });
@@ -473,15 +473,15 @@ const handleCalcular = async () => {
     await calcular(simulacionData);
     toast.add({
       severity: 'success',
-      summary: 'Éxito',
-      detail: 'Simulación calculada correctamente',
+      summary: 'Exito',
+      detail: 'Simulacion calculada correctamente',
       life: 3000
     });
   } catch (error) {
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: error.message || 'Error al calcular la simulación',
+      detail: error.message || 'Error al calcular la simulaciÃ³n',
       life: 3000
     });
   }
@@ -493,7 +493,7 @@ const handleGuardar = async () => {
 
     toast.add({
       severity: 'success',
-      summary: 'Éxito',
+      summary: 'Exito',
       detail: 'Los datos se guardaron exitosamente',
       life: 3000
     });
@@ -501,7 +501,7 @@ const handleGuardar = async () => {
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: error.message || 'Error al guardar la simulación',
+      detail: error.message || 'Error al guardar la simulaciÃ³n',
       life: 3000
     });
   }
@@ -510,7 +510,7 @@ const handleGuardar = async () => {
 const handleEditar = () => {
   toast.add({
     severity: 'info',
-    summary: 'Información',
+    summary: 'Informacion',
     detail: 'Puede modificar los datos y volver a calcular',
     life: 3000
   });
@@ -569,8 +569,8 @@ const handleExportCronograma = () => {
     exportarCronograma(`cronograma_pagos_${fecha}.xls`);
     toast.add({
       severity: 'success',
-      summary: 'Exportación completada',
-      detail: 'El cronograma se exportó correctamente en Excel',
+      summary: 'Exportacion completada',
+      detail: 'El cronograma se exportÃ³ correctamente en Excel',
       life: 3000
     });
   } catch (error) {
@@ -590,7 +590,7 @@ const verCronograma = () => {
     toast.add({
       severity: 'warn',
       summary: 'Sin cronograma',
-      detail: 'Debe calcular una simulación antes de ver el cronograma',
+      detail: 'Debe calcular una simulacion antes de ver el cronograma',
       life: 3000
     });
   }
@@ -620,6 +620,23 @@ const cuotaSeleccionadaValor = computed(() => {
   const pago = cronograma.find(p => p.numeroCuota === cuotaSeleccionada.value);
 
   return pago ? Number(pago.cuotaTotal) : 0;
+});
+
+/**
+ * Tasa de Descuento de Rentabilidad (TDP)
+ * Fórmula: TDP = (1 + COK)^(30/360) - 1
+ * Donde COK es la tasa de descuento ingresada por el usuario
+ */
+const tasaDescuentoRentabilidad = computed(() => {
+  // Primero verificar si viene del cálculo (simulacionActual)
+  if (simulacionActual.value?.tasaDescuentoPeriodo) {
+    return (simulacionActual.value.tasaDescuentoPeriodo * 100).toFixed(4);
+  }
+
+  // Si no, calcularlo desde el input del formulario
+  const cok = Number(formData.value.tasaDescuento) || 12;
+  const tdp = Math.pow(1 + (cok / 100), 30 / 360) - 1;
+  return (tdp * 100).toFixed(4);
 });
 
 // Lifecycle
@@ -670,7 +687,7 @@ onMounted(async () => {
                   </div>
                 </template>
               </Dropdown>
-              <small class="p-help">Los datos del cliente se cargarán automáticamente</small>
+              <small class="p-help">Los datos del cliente se cargarÃ¡n automÃ¡ticamente</small>
             </div>
           </div>
 
@@ -771,65 +788,65 @@ onMounted(async () => {
 
           <div class="col-12">
             <div class="grid">
-          <div class="col-12 md:col-3">
-            <div class="field">
-              <label for="fechaInicio">Fecha de Inicio de Pago</label>
-              <Calendar
-                  id="fechaInicio"
-                  v-model="formData.fechaInicioPago"
-                  dateFormat="dd/mm/yy"
-                  placeholder="dd/mm/aaaa"
-                  class="w-full"
-                  :disabled="loading"
-              />
-            </div>
-          </div>
+              <div class="col-12 md:col-3">
+                <div class="field">
+                  <label for="fechaInicio">Fecha de Inicio de Pago</label>
+                  <Calendar
+                      id="fechaInicio"
+                      v-model="formData.fechaInicioPago"
+                      dateFormat="dd/mm/yy"
+                      placeholder="dd/mm/aaaa"
+                      class="w-full"
+                      :disabled="loading"
+                  />
+                </div>
+              </div>
 
-          <!-- TASA DE DESCUENTO -->
-          <div class="col-12 md:col-3">
-            <div class="field">
-              <label for="tasaDescuento">Tasa de descuento</label>
+              <!-- TASA DE DESCUENTO -->
+              <div class="col-12 md:col-3">
+                <div class="field">
+                  <label for="tasaDescuento">Tasa de descuento</label>
 
-              <InputNumber
-                  id="tasaDescuento"
-                  v-model="formData.tasaDescuento"
-                  suffix="%"
-                  :minFractionDigits="2"
-                  :maxFractionDigits="2"
-                  :min="12"
-                  :max="25"
-                  class="w-full"
-                  :class="{ 'p-invalid': tasaDescuentoError }"
-                  placeholder="12.00%"
-              />
+                  <InputNumber
+                      id="tasaDescuento"
+                      v-model="formData.tasaDescuento"
+                      suffix="%"
+                      :minFractionDigits="2"
+                      :maxFractionDigits="2"
+                      :min="12"
+                      :max="25"
+                      class="w-full"
+                      :class="{ 'p-invalid': tasaDescuentoError }"
+                      placeholder="12.00%"
+                  />
 
-              <small v-if="tasaDescuentoError" class="p-error">
-                {{ tasaDescuentoError }}
-              </small>
+                  <small v-if="tasaDescuentoError" class="p-error">
+                    {{ tasaDescuentoError }}
+                  </small>
 
-              <small v-else class="p-help">
-                Rango permitido: 12% - 25%
-              </small>
-            </div>
-          </div>
+                  <small v-else class="p-help">
+                    Rango permitido: 12% - 25%
+                  </small>
+                </div>
+              </div>
 
 
-          <div class="col-12 md:col-6">
-            <div class="field">
-              <label for="entidad">Entidad Financiera</label>
-              <Dropdown
-                  id="entidad"
-                  v-model="formData.entidadFinanciera"
-                  :options="entidadesFinancieras"
-                  optionLabel="label"
-                  optionValue="value"
-                  placeholder="Seleccionar"
-                  class="w-full"
-                  :disabled="loading"
-                  appendTo="body"
-              />
-            </div>
-          </div>
+              <div class="col-12 md:col-6">
+                <div class="field">
+                  <label for="entidad">Entidad Financiera</label>
+                  <Dropdown
+                      id="entidad"
+                      v-model="formData.entidadFinanciera"
+                      :options="entidadesFinancieras"
+                      optionLabel="label"
+                      optionValue="value"
+                      placeholder="Seleccionar"
+                      class="w-full"
+                      :disabled="loading"
+                      appendTo="body"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -974,11 +991,11 @@ onMounted(async () => {
       </div>
 
       <!-- ======================= -->
-      <!-- RESUMEN DEL CÁLCULO     -->
+      <!-- RESUMEN DEL CALCULO     -->
       <!-- ======================= -->
       <div v-if="simulacionActual" class="resumen-section">
 
-        <h3 class="resumen-title">Resumen del cálculo</h3>
+        <h3 class="resumen-title">Resumen del Calculo</h3>
 
         <div class="resumen-grid">
 
@@ -1002,16 +1019,24 @@ onMounted(async () => {
           <div class="resumen-item">
             <span class="resumen-label">TCEA:</span>
             <span class="resumen-value">
-        {{ simulacionActual.tcea?.toFixed(2) }}%
-      </span>
+              {{ simulacionActual.tcea?.toFixed(4) }}%
+            </span>
           </div>
 
           <!-- TIR -->
           <div class="resumen-item">
             <span class="resumen-label">TIR:</span>
             <span class="resumen-value">
-        {{ simulacionActual.tir?.toFixed(2) }}%
-      </span>
+              {{ simulacionActual.tir?.toFixed(5) }}%
+            </span>
+          </div>
+
+          <!-- Tasa de Descuento de Rentabilidad (TDP) -->
+          <div class="resumen-item resumen-item-highlight">
+            <span class="resumen-label">Tasa Descuento Rentabilidad:</span>
+            <span class="resumen-value">
+              {{ tasaDescuentoRentabilidad }}%
+            </span>
           </div>
 
         </div>
@@ -1183,7 +1208,7 @@ onMounted(async () => {
 
 .resumen-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
   margin-bottom: 2rem;
 }
@@ -1196,6 +1221,20 @@ onMounted(async () => {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   border-left: 4px solid #f59e0b;
+}
+
+.resumen-item-highlight {
+  background: rgba(245, 158, 11, 0.25);
+  border-left: 4px solid #fbbf24;
+}
+
+.resumen-item-highlight .resumen-label {
+  color: #fef3c7;
+}
+
+.resumen-item-highlight .resumen-value {
+  color: #fbbf24;
+  font-size: 1.25rem;
 }
 
 .resumen-label {
