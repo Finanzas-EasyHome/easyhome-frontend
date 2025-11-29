@@ -50,56 +50,57 @@ export class GuardarSimulacion {
         return {
             id: sim.id ?? crypto.randomUUID(),
 
-            // relaciones
-            cliente_tp_id: sim.cliente_id ?? null,
-            entidad_id: sim.entidad_financiera ?? null,
+            // RELACIONES (modo Techo Propio)
+            cliente_tp_id: sim.clienteId ?? null,
+            cliente_ncmv_id: null,
 
-            // datos base
-            programa: sim.programa_objetivo,
-            valor_vivienda: sim.valor_vivienda,
-            bono_monto: sim.monto_bono,
+            vivienda_tp_id: sim.viviendaId ?? null,    // <<-- debes asignar sim.viviendaId cuando cargues la vivienda
+            vivienda_ncmv_id: null,
 
-            // cuota inicial
-            cuota_inicial_porcentaje: sim.cuota_inicial_porcentaje,
-            cuota_inicial_monto: sim.cuota_inicial,
+            // DATOS BASE
+            programa: sim.programa,
+            valor_vivienda: sim.valorVivienda,
+            bono_monto: sim.montoBono,
 
-            // financiado
-            saldo_financiar: sim.monto_financiado,   // <-- OK
+            // CUOTA INICIAL
+            cuota_inicial_porcentaje: sim.cuotaInicialPorcentaje,
+            cuota_inicial_monto: sim.cuotaInicial,
 
-            // tasas
-            tipo_tasa: "TEA",
-            tasa_valor: sim.tasa_interes,
-            tasa_descuento: sim.tasa_descuento ?? 0,
+            // FINANCIADO
+            saldo_financiar: sim.montoFinanciado,
 
-            // plazo
-            plazo_tipo: "meses",
-            plazo_valor: sim.plazo_prestamo,
+            // TASAS
+            tipo_tasa: sim.tipoTasa,
+            tasa_valor: sim.tasaInteres,
+            tasa_descuento: sim.tasaDescuento ?? 0,
 
-            // periodo gracia
-            gracia_tipo: sim.tipo_periodo_gracia,
-            gracia_meses: sim.periodo_gracia,
-
-            // costos
-            seguro_desgravamen: sim.seguro_desgravamen,
-            seguro_inmueble: sim.seguro_inmueble,
+            // COSTOS (NOMBRES EXACTOS DE SUPABASE)
+            seguro_desgravamen: sim.seguroDesgravamen,
+            seguro_inmueble: sim.seguroInmueble,
+            cargos_admin: sim.cargosAdmin ?? 0,
             tasacion: sim.tasacion,
-            gastos_notariales: sim.gastos_notariales,
-            gastos_registrales: sim.gastos_registrales,
-            cargos_administrativos: sim.cargos_administrativos ?? 0,
-            comision_desembolso: sim.comision_desembolso,
+            gastos_notariales: sim.gastosNotariales,
+            gastos_registrales: sim.gastosRegistrales,
+            comision_envio: sim.comisionDesembolso,
 
-            // resultados
-            cuota: sim.cuota_mensual,       // <-- el correcto
+            // PLAZO Y GRACIA
+            plazo_tipo: sim.plazoTipo,
+            plazo_valor: sim.plazoPrestamo,
+            gracia_tipo: sim.tipoPeriodoGracia,
+            gracia_meses: sim.periodoGracia,
+
+            // FECHAS
+            fecha_inicio_pago: sim.fechaInicioPago,
+            fecha_creacion: new Date().toISOString(),
+
+            // RESULTADOS
+            cuota: sim.cuotaMensual,
             tcea: sim.tcea,
             van: sim.van,
             tir: sim.tir,
 
-            // fechas
-            fecha_inicio_pago: sim.fecha_inicio_pago,
-            fecha_creacion: new Date().toISOString(),
-
-            // usuario
-            user_id: sim.user_id ?? null
+            // USUARIO
+            user_id: sim.userId ?? null
         };
     }
 

@@ -5,6 +5,7 @@ import { Simulacion } from '/src/modules/simulador/domain/entities/Simulacion.js
 /**
  * Caso de uso: Calcular Simulación de Plan de Pagos
  * Implementación del Método Francés según documento de Finanzas e Ingeniería Económica
+ * Adaptado a fórmulas de Excel proporcionadas
  */
 export class CalcularSimulacion {
     constructor(repository) {
@@ -23,7 +24,8 @@ export class CalcularSimulacion {
             }
 
             // 3️⃣ Calcular monto financiado base
-            simulacion.calculateMontoFinanciado();
+            // Ya no llamamos a simulacion.calculateMontoFinanciado()
+            // porque lo haremos directamente en calcularMontoPrestamo()
 
             // 4️⃣ Sincronizar ENTRADA para cálculos
             this.sincronizarEntrada(simulacion);
@@ -34,10 +36,10 @@ export class CalcularSimulacion {
             // 6️⃣ Calcular cuota y cronograma (método francés)
             this.calcularCuotaYCronograma(simulacion);
 
-            // 7️⃣ Calcular indicadores financieros (TCEA, VAN, TIR)
+            // 6️⃣ Calcular indicadores financieros (TCEA, VAN, TIR)
             this.calcularIndicadoresFinancieros(simulacion);
 
-            // 8️⃣ Sincronizar SALIDA
+            // 7️⃣ Sincronizar SALIDA
             this.sincronizarSalida(simulacion);
 
             return simulacion;
@@ -54,29 +56,32 @@ export class CalcularSimulacion {
     sincronizarEntrada(sim) {
         // Datos de la vivienda
         sim.valorVivienda = Number(sim.valor_vivienda ?? sim.valorVivienda ?? 0);
-        sim.cuotaInicial = Number(sim.cuota_inicial ?? sim.cuotaInicial ?? 0);
+        sim.cuotaInicial = Number(sim.cuota_inicial ?? sim.cuotaInicial ?? sim.cuota_inicial_monto ?? 0);
         sim.cuotaInicialPorcentaje = Number(sim.cuota_inicial_porcentaje ?? sim.cuotaInicialPorcentaje ?? 0);
-        sim.montoBono = Number(sim.monto_bono ?? sim.montoBono ?? 0);
+        sim.montoBono = Number(sim.monto_bono ?? sim.montoBono ?? sim.bono_monto ?? 0);
 
-        // Saldo a financiar (valor - cuota inicial - bono)
-        sim.saldoFinanciar = Number(sim.monto_financiado ?? sim.montoFinanciado ?? sim.saldo_financiar ?? 0);
+        // =============================================
+        // CALCULAR SALDO A FINANCIAR
+        // Saldo a Financiar = Valor Vivienda - Cuota Inicial - Bono
+        // =============================================
+        sim.saldoFinanciar = sim.valorVivienda - sim.cuotaInicial - sim.montoBono;
 
         // Datos del préstamo
-        sim.tasaInteres = Number(sim.tasa_interes ?? sim.tasaInteres ?? 0); // TEA en %
+        sim.tasaInteres = Number(sim.tasa_interes ?? sim.tasaInteres ?? sim.tasa_valor ?? 0); // TEA en %
         sim.tasaDescuentoCOK = Number(sim.tasa_descuento ?? sim.tasaDescuento ?? 12); // COK en %
-        sim.plazoPrestamo = Number(sim.plazo_prestamo ?? sim.plazoPrestamo ?? 0); // en meses
+        sim.plazoPrestamo = Number(sim.plazo_prestamo ?? sim.plazoPrestamo ?? sim.plazo_valor ?? 0); // en meses
 
         // Período de gracia
-        sim.periodoGracia = Number(sim.periodo_gracia ?? sim.periodoGracia ?? 0);
-        sim.tipoPeriodoGracia = sim.tipo_periodo_gracia ?? sim.tipoPeriodoGracia ?? 'ninguno';
+        sim.periodoGracia = Number(sim.periodo_gracia ?? sim.periodoGracia ?? sim.gracia_meses ?? 0);
+        sim.tipoPeriodoGracia = sim.tipo_periodo_gracia ?? sim.tipoPeriodoGracia ?? sim.gracia_tipo ?? 'ninguno';
 
         // Fecha de inicio
         sim.fechaInicioPago = sim.fecha_inicio_pago ?? sim.fechaInicioPago;
 
         // =============================================
-        // COSTOS INICIALES (se suman al préstamo)
+        // COSTOS QUE SE SUMAN AL PRÉSTAMO
         // =============================================
-        sim.tasacion = Number(sim.tasacion ?? 0);
+        sim.tasacion = Number(sim.tasacion ?? sim.tasacion_min ?? 0);
         sim.gastosNotariales = Number(sim.gastos_notariales ?? sim.gastosNotariales ?? 0);
         sim.gastosRegistrales = Number(sim.gastos_registrales ?? sim.gastosRegistrales ?? 0);
 
@@ -91,17 +96,19 @@ export class CalcularSimulacion {
 
         // =============================================
         // OTROS COSTOS PERIÓDICOS (montos fijos por período)
-        // CORRECCIÓN: Aceptar cargosAdministrativos del repositorio
+        // IMPORTANTE: El campo en Supabase es "cargos_admin"
         // =============================================
         sim.cargosAdministrativos = Number(
-            sim.cargosAdministrativos ??
-            sim.cargos_administrativos ??
-            sim.cargos_admin ??
+            sim.cargos_admin ??           // ← Viene de Supabase
+            sim.cargosAdmin ??            // ← Alternativa del repository
+            sim.cargos_administrativos ?? // ← Alternativa
+            sim.cargosAdministrativos ??  // ← Ya existente en memoria
             0
         );
 
         sim.comision = Number(
             sim.comision ??
+            sim.comision_envio ??         // ← Viene de Supabase
             sim.comision_desembolso ??
             sim.comisionDesembolso ??
             0
@@ -109,32 +116,44 @@ export class CalcularSimulacion {
 
         sim.portes = Number(sim.portes ?? 0);
 
-        console.log("🔍 DEBUG - Cargos Administrativos:", sim.cargosAdministrativos);
-
         // Parámetros de cálculo
         sim.diasPorAnio = 360;
         sim.frecuenciaPago = 30; // mensual
         sim.cuotasPorAnio = 12;
+
+        console.log("=== DATOS DE ENTRADA ===");
+        console.log("Valor Vivienda:", sim.valorVivienda);
+        console.log("Cuota Inicial:", sim.cuotaInicial);
+        console.log("Monto Bono:", sim.montoBono);
+        console.log("Saldo a Financiar:", sim.saldoFinanciar);
+        console.log("Tasación:", sim.tasacion);
+        console.log("Gastos Notariales:", sim.gastosNotariales);
+        console.log("Gastos Registrales:", sim.gastosRegistrales);
+        console.log("Cargos Administrativos (raw):", sim.cargos_admin);
+        console.log("Cargos Administrativos (procesado):", sim.cargosAdministrativos);
+        console.log("TEA:", sim.tasaInteres + "%");
+        console.log("Plazo:", sim.plazoPrestamo, "meses");
+        console.log("Período Gracia:", sim.periodoGracia, "meses");
+        console.log("Tipo Gracia:", sim.tipoPeriodoGracia);
     }
 
     /**
-     * Calcular Monto del Préstamo
-     * Monto Préstamo = Saldo a Financiar + Costos Iniciales
+     * Calcular Monto del Préstamo (Monto Financiado)
+     * FÓRMULA: Monto Financiado = Saldo a Financiar + Gastos Notariales + Gastos Registrales + Tasación
      */
     calcularMontoPrestamo(sim) {
-        // Costos iniciales según el documento
-        sim.costosIniciales = sim.tasacion + sim.gastosNotariales + sim.gastosRegistrales;
-
-        // Monto del préstamo = Saldo a financiar + Costos iniciales
-        sim.montoPrestamo = sim.saldoFinanciar + sim.costosIniciales;
+        // FÓRMULA EXACTA DEL EXCEL
+        sim.montoPrestamo = sim.saldoFinanciar + sim.gastosNotariales + sim.gastosRegistrales + sim.tasacion;
 
         // También actualizar montoFinanciado para mostrar en la UI
         sim.montoFinanciado = sim.montoPrestamo;
 
-        console.log("=== MONTO PRÉSTAMO ===");
+        console.log("=== MONTO FINANCIADO (MONTO PRÉSTAMO) ===");
         console.log("Saldo a Financiar:", sim.saldoFinanciar);
-        console.log("Costos Iniciales:", sim.costosIniciales);
-        console.log("MONTO PRÉSTAMO:", sim.montoPrestamo);
+        console.log("+ Gastos Notariales:", sim.gastosNotariales);
+        console.log("+ Gastos Registrales:", sim.gastosRegistrales);
+        console.log("+ Tasación:", sim.tasacion);
+        console.log("= MONTO FINANCIADO:", sim.montoPrestamo);
     }
 
     /**
@@ -148,7 +167,7 @@ export class CalcularSimulacion {
     }
 
     /**
-     * MÉTODO FRANCÉS - Cálculo del cronograma
+     * MÉTODO FRANCÉS - Cálculo del cronograma según fórmulas de Excel
      */
     calcularCuotaYCronograma(sim) {
         const montoPrestamo = sim.montoPrestamo;
@@ -157,8 +176,8 @@ export class CalcularSimulacion {
         const gTipo = sim.tipoPeriodoGracia;
 
         // ============================================
-        // 1. CALCULAR TEP (Tasa Efectiva del Período)
-        // TEP = (1 + TEA)^(30/360) - 1
+        // 1. FÓRMULA EXCEL: TEP (Tasa Efectiva del Período)
+        // TEP = (1 + TEA)^(frecuencia / dias_por_año) - 1
         // ============================================
         const TEA = sim.tasaInteres / 100;
         const TEP = Math.pow(1 + TEA, sim.frecuenciaPago / sim.diasPorAnio) - 1;
@@ -168,27 +187,31 @@ export class CalcularSimulacion {
         console.log("TEP:", (TEP * 100).toFixed(5) + "%");
 
         // ============================================
-        // 2. SEGURO DE DESGRAVAMEN POR PERÍODO
+        // 2. FÓRMULA EXCEL: Seguro de Desgravamen del Período
+        // %SD_periodo = (%SD_mensual * frecuencia) / 30
         // ============================================
-        const seguroDesgravamenPeriodo = sim.seguroDesgravamenPorcentaje;
+        const seguroDesgravamenPeriodo = (sim.seguroDesgravamenPorcentaje * sim.frecuenciaPago) / 30;
 
         // ============================================
-        // 3. SEGURO DE RIESGO/INMUEBLE POR PERÍODO
-        // SegRiesgo = (%anual * valorVivienda) / 12
+        // 3. FÓRMULA EXCEL: Seguro de Riesgo por Período
+        // SegRie = (%anual * valorVivienda) / cuotas_por_año
         // ============================================
         const seguroRiesgoPeriodo = (sim.seguroInmuebleAnual * sim.valorVivienda) / sim.cuotasPorAnio;
 
         // ============================================
-        // 4. GASTOS ADMINISTRATIVOS POR PERÍODO
-        // En el Excel es S/ 10.00 por período (mensual)
+        // 4. Costos periódicos fijos
         // ============================================
         const gastosAdminPeriodo = sim.cargosAdministrativos;
         const comisionPeriodo = sim.comision;
         const portesPeriodo = sim.portes;
 
         console.log("=== COSTOS PERIÓDICOS ===");
-        console.log("Seguro Desgravamen:", (seguroDesgravamenPeriodo * 100).toFixed(4) + "%");
-        console.log("Seguro Riesgo: S/", seguroRiesgoPeriodo.toFixed(2));
+        console.log("Seguro Desgravamen %:", (seguroDesgravamenPeriodo * 100).toFixed(6) + "%");
+        console.log("Seguro Inmueble % (anual):", (sim.seguroInmuebleAnual * 100).toFixed(6) + "%");
+        console.log("Seguro Inmueble (valor raw):", sim.seguroInmuebleAnual);
+        console.log("Valor Vivienda:", sim.valorVivienda);
+        console.log("Cálculo: ", sim.seguroInmuebleAnual, "×", sim.valorVivienda, "÷", sim.cuotasPorAnio);
+        console.log("Seguro Riesgo por período: S/", seguroRiesgoPeriodo.toFixed(2));
         console.log("Gastos Admin: S/", gastosAdminPeriodo.toFixed(2));
         console.log("Comisión: S/", comisionPeriodo.toFixed(2));
         console.log("Portes: S/", portesPeriodo.toFixed(2));
@@ -199,9 +222,7 @@ export class CalcularSimulacion {
         const cronograma = [];
         const fechaInicio = new Date(sim.fechaInicioPago);
 
-        let saldoInicial = montoPrestamo;
-
-        // FLUJOS: Flujo 0 = +Préstamo (positivo)
+        // FLUJOS: Flujo 0 = +Préstamo (positivo - cliente recibe dinero)
         let flujos = [montoPrestamo];
 
         // Variables para totales
@@ -210,6 +231,12 @@ export class CalcularSimulacion {
         let totalSeguroDesgravamen = 0;
         let totalSeguroRiesgo = 0;
         let totalGastosAdmin = 0;
+        let totalComision = 0;
+        let totalPortes = 0;
+
+        // FÓRMULA EXCEL: Saldo Inicial Indexado (SII)
+        // SII = SI * (1 + IP)  donde IP = 0 (sin inflación)
+        let saldoInicial = montoPrestamo;
 
         for (let nc = 1; nc <= plazo; nc++) {
             const fechaPago = new Date(fechaInicio);
@@ -217,15 +244,18 @@ export class CalcularSimulacion {
 
             const SII = saldoInicial;
 
-            // Interés = SII × TEP
+            // FÓRMULA EXCEL 3: Interés del período
+            // Interés = -SII * TEP
             const interes = SII * TEP;
 
-            // Seguro Desgravamen = SII × %SegDes
+            // FÓRMULA EXCEL 4: Seguro de Desgravamen
+            // SegDes = -SII * %SD_periodo
             const seguroDesgravamen = SII * seguroDesgravamenPeriodo;
 
             let cuotaConSegDes = 0;  // Cuota incluyendo Seg Desgravamen
             let amortizacion = 0;
             let saldoFinal = 0;
+            let prepago = 0; // Prepago de deuda (si aplica)
             let periodoGraciaLabel = 'S';  // S = Sin gracia
 
             // ============================================
@@ -237,36 +267,53 @@ export class CalcularSimulacion {
                     periodoGraciaLabel = 'T';
                     cuotaConSegDes = 0;
                     amortizacion = 0;
-                    saldoFinal = SII + interes;
+                    // FÓRMULA EXCEL 7: SF = SII + Amortización + Prepago
+                    // En gracia total: SF = SII + Interés (se capitaliza)
+                    saldoFinal = SII + interes + prepago;
                 } else if (gTipo === "parcial") {
-                    // GRACIA PARCIAL: Solo paga intereses (SIN seguro desgravamen)
+                    // GRACIA PARCIAL: Solo paga intereses (NO incluye seguro desgravamen en el pago)
+                    // Según tu Excel, en gracia parcial la cuota es SOLO el interés
                     periodoGraciaLabel = 'P';
-                    cuotaConSegDes = interes;  // ✅ Solo intereses
+                    cuotaConSegDes = interes;  // Solo el interés, sin seguro
                     amortizacion = 0;
-                    saldoFinal = SII;
+                    saldoFinal = SII + prepago;
                 }
             } else {
                 // ============================================
-                // CUOTA NORMAL (Método Francés con Seguro)
-                // Cuota = SII × [(TEP + %SegDes) × (1 + TEP + %SegDes)^n] / [(1 + TEP + %SegDes)^n - 1]
+                // FÓRMULA EXCEL 5: Cuota método francés (cuota constante)
+                // Cuota = PAGO(TEP + %SD, N - n + 1, SII, 0, 0)
                 // ============================================
                 periodoGraciaLabel = 'S';
                 const cuotasRestantes = plazo - nc + 1;
                 const tasaConSeguro = TEP + seguroDesgravamenPeriodo;
-                const factor = Math.pow(1 + tasaConSeguro, cuotasRestantes);
 
-                cuotaConSegDes = SII * (tasaConSeguro * factor) / (factor - 1);
+                // Función PAGO de Excel
+                cuotaConSegDes = this.funcionPAGO(tasaConSeguro, cuotasRestantes, SII);
+
+                // FÓRMULA EXCEL 6: Amortización del período
+                // Amortización = Cuota - Interés - SegDes
                 amortizacion = cuotaConSegDes - interes - seguroDesgravamen;
-                saldoFinal = SII - amortizacion;
+
+                // FÓRMULA EXCEL 7: Saldo Final del período
+                // SF = SII + Amortización + Prepago
+                saldoFinal = SII - amortizacion + prepago;
 
                 if (saldoFinal < 0.01) saldoFinal = 0;
             }
 
-            // ============================================
-            // FLUJO = -(Cuota + SegRiesgo + Comisión + Portes + GastosAdmin)
-            // NEGATIVO porque es pago que sale del cliente
-            // ============================================
-            const flujoNeto = -(cuotaConSegDes + seguroRiesgoPeriodo + comisionPeriodo + portesPeriodo + gastosAdminPeriodo);
+            // FÓRMULA EXCEL 8: Flujo del período
+            // Según la lógica de tu Excel, el flujo varía según el tipo de período:
+            // - En GRACIA (T o P): incluye Cuota + SegDesgrav + SegRiesgo + Comisión + Portes + GasAdm
+            // - SIN GRACIA (S): incluye Cuota + SegRiesgo + Comisión + Portes (SIN SegDesgrav, SIN GasAdm)
+
+            let flujoNeto;
+            if (nc <= gMeses) {
+                // Período de GRACIA (T o P): incluye todos los costos
+                flujoNeto = -(cuotaConSegDes + seguroDesgravamen + seguroRiesgoPeriodo + comisionPeriodo + portesPeriodo + gastosAdminPeriodo);
+            } else {
+                // Período SIN GRACIA (S): NO incluye SegDesgrav ni GasAdm
+                flujoNeto = -(cuotaConSegDes + seguroRiesgoPeriodo + comisionPeriodo + portesPeriodo+ gastosAdminPeriodo);
+            }
 
             // Acumular totales
             totalIntereses += interes;
@@ -274,8 +321,10 @@ export class CalcularSimulacion {
             totalSeguroDesgravamen += seguroDesgravamen;
             totalSeguroRiesgo += seguroRiesgoPeriodo;
             totalGastosAdmin += gastosAdminPeriodo;
+            totalComision += comisionPeriodo;
+            totalPortes += portesPeriodo;
 
-            // Agregar al cronograma con TODOS los campos del Excel
+            // Agregar al cronograma
             cronograma.push({
                 numeroCuota: nc,
                 fechaPago: fechaPago.toISOString().split("T")[0],
@@ -290,7 +339,8 @@ export class CalcularSimulacion {
                 seguroRiesgo: this.redondear2(seguroRiesgoPeriodo),
                 comision: this.redondear2(comisionPeriodo),
                 portes: this.redondear2(portesPeriodo),
-                gastosAdmin: this.redondear2(gastosAdminPeriodo),
+                gastosAdmin: this.redondear2(gastosAdminPeriodo), // <-- AQUÍ estaba el problema
+                prepago: this.redondear2(prepago),
                 saldoFinal: this.redondear2(saldoFinal),
                 flujo: this.redondear2(flujoNeto),
 
@@ -305,7 +355,8 @@ export class CalcularSimulacion {
             // Agregar flujo (negativo)
             flujos.push(flujoNeto);
 
-            // Actualizar saldo
+            // FÓRMULA EXCEL 2: Actualizar saldo para siguiente período
+            // SII = SI * (1 + IP)
             saldoInicial = saldoFinal;
         }
 
@@ -316,6 +367,8 @@ export class CalcularSimulacion {
         sim.totalSeguroDesgravamen = this.redondear2(totalSeguroDesgravamen);
         sim.totalSeguroRiesgo = this.redondear2(totalSeguroRiesgo);
         sim.totalGastosAdmin = this.redondear2(totalGastosAdmin);
+        sim.totalComision = this.redondear2(totalComision);
+        sim.totalPortes = this.redondear2(totalPortes);
         sim.flujos = flujos;
 
         // Cuota mensual (primera cuota normal)
@@ -336,6 +389,26 @@ export class CalcularSimulacion {
     }
 
     /**
+     * FÓRMULA EXCEL: Función PAGO (PMT)
+     * Calcula el pago periódico de un préstamo con tasa constante
+     * PAGO(tasa, nper, va, vf, tipo)
+     */
+    funcionPAGO(tasa, nper, va, vf = 0, tipo = 0) {
+        if (tasa === 0) {
+            return -(va + vf) / nper;
+        }
+
+        const pvif = Math.pow(1 + tasa, nper);
+        let pago = (tasa * (va * pvif + vf)) / (pvif - 1);
+
+        if (tipo === 1) {
+            pago /= (1 + tasa);
+        }
+
+        return pago;
+    }
+
+    /**
      * CÁLCULO DE INDICADORES FINANCIEROS
      */
     calcularIndicadoresFinancieros(sim) {
@@ -345,7 +418,7 @@ export class CalcularSimulacion {
         console.log("COK:", sim.tasaDescuentoCOK + "%");
 
         // ============================================
-        // 1. TASA DE DESCUENTO DEL PERÍODO
+        // Tasa de descuento del período
         // TDP = (1 + COK)^(30/360) - 1
         // ============================================
         const COK = sim.tasaDescuentoCOK / 100;
@@ -355,25 +428,27 @@ export class CalcularSimulacion {
         console.log("TDP:", (TDP * 100).toFixed(5) + "%");
 
         // ============================================
-        // 2. TIR (Tasa Interna de Retorno)
-        // Flujos: [+Préstamo, -Pago1, -Pago2, ..., -PagoN]
+        // FÓRMULA EXCEL 9: TIR del período
+        // TIR = TIR(Flujos)
         // ============================================
         const tirPeriodo = this.calcularTIR(flujos);
         sim.tir = this.redondear5(tirPeriodo * 100);
         console.log("TIR:", sim.tir + "%");
 
         // ============================================
-        // 3. TCEA = ((1 + TIR)^12) - 1
+        // FÓRMULA EXCEL 10: TCEA
+        // TCEA = (1 + TIR)^(cuotas_por_año) - 1
         // ============================================
         const tcea = Math.pow(1 + tirPeriodo, sim.cuotasPorAnio) - 1;
         sim.tcea = this.redondear4(tcea * 100);
         console.log("TCEA:", sim.tcea + "%");
 
         // ============================================
-        // 4. VAN = Σ(Flujo_i / (1 + TDP)^i)
+        // FÓRMULA EXCEL 11: VAN (Valor Actual Neto)
+        // VAN = Flujo_0 + VNA(tasa_descuento_per, Flujos)
         // ============================================
-        let van = 0;
-        for (let i = 0; i < flujos.length; i++) {
+        let van = flujos[0]; // Flujo inicial (positivo)
+        for (let i = 1; i < flujos.length; i++) {
             van += flujos[i] / Math.pow(1 + TDP, i);
         }
         sim.van = this.redondear2(van);
