@@ -37,33 +37,47 @@ const formatPercent = (value) => {
 const mapToSimulacionData = (form) => ({
   cliente_id: form.clienteId,
   cliente_nombre: form.clienteNombre,
-  programa_objetivo: form.programaObjetivo,
 
-  valor_vivienda: form.valorVivienda,
-  cuota_inicial: form.cuotaInicial,
-  cuota_inicial_porcentaje: form.cuotaInicialPorcentaje,
-  monto_bono: form.montoBono,
+  // programa
+  programa: form.programaObjetivo,
+  programa_objetivo: form.programaObjetivo, // por compatibilidad
 
-  monto_financiado: form.montoFinanciado,
+  // vivienda
+  valor_vivienda: Number(form.valorVivienda),
+  cuota_inicial_monto: Number(form.cuotaInicial),
+  cuota_inicial_porcentaje: Number(form.cuotaInicialPorcentaje),
+  bono_monto: Number(form.montoBono),
+  saldo_financiar: Number(form.montoFinanciado),
+  monto_financiado: Number(form.montoFinanciado),
+
+  // préstamo
   fecha_inicio_pago: form.fechaInicioPago,
-
-  tasa_descuento: form.tasaDescuento,
-  entidad_financiera: form.entidadFinanciera,
-
-  tasa_interes: Number(String(form.tasaInteres)),
-  plazo_prestamo: form.plazoPrestamo,
-
+  tasa_interes: Number(form.tasaInteres),  // TEA %
+  tasa_valor: Number(form.tasaInteres),    // mismo valor para Simulacion
+  tasa_descuento: Number(form.tasaDescuento),
+  plazo_prestamo: Number(form.plazoPrestamo),
+  plazo_valor: Number(form.plazoPrestamo),
   tipo_periodo_gracia: form.tipoPeriodoGracia,
-  periodo_gracia: form.periodoGracia,
+  gracia_tipo: form.tipoPeriodoGracia,
+  periodo_gracia: Number(form.periodoGracia),
+  gracia_meses: Number(form.periodoGracia),
 
-  seguro_desgravamen: form.seguroDesgravamen,
-  seguro_inmueble: form.seguroInmueble,
-  tasacion: form.tasacion,
-  gastos_notariales: form.gastosNotariales,
-  cargos_administrativos: form.cargosAdministrativos,
-  gastos_registrales: form.gastosRegistrales,
-  comision_desembolso: form.comisionDesembolso
+  // entidad financiera
+  entidad_id: form.entidadFinanciera,
+  entidad_financiera: form.entidadFinanciera, // compatibilidad
+
+  // costos adicionales
+  seguro_desgravamen: Number(form.seguroDesgravamen),
+  seguro_inmueble: Number(form.seguroInmueble),
+  tasacion: Number(form.tasacion),
+  gastos_notariales: Number(form.gastosNotariales),
+  gastos_registrales: Number(form.gastosRegistrales),
+  cargos_admin: Number(form.cargosAdministrativos),
+  cargos_administrativos: Number(form.cargosAdministrativos), // compatibilidad
+  comision_envio: Number(form.comisionDesembolso),
+  comision_desembolso: Number(form.comisionDesembolso), // compatibilidad
 });
+
 
 // State del formulario
 const formData = ref({
@@ -451,10 +465,12 @@ const handleCalcular = async () => {
 
     updateMontoFinanciado();
     const simulacionData = mapToSimulacionData(formData.value);
+
+    simulacionData.entidad_financiera = formData.value.entidadFinanciera;
+
     console.log("DATA ENVIADA A CALCULAR:", simulacionData);
 
     await calcular(simulacionData);
-
     toast.add({
       severity: 'success',
       summary: 'Éxito',
@@ -579,6 +595,32 @@ const verCronograma = () => {
     });
   }
 };
+const cuotaSeleccionada = ref(null);
+
+const cuotaOptions = computed(() => {
+  const cronograma = simulacionActual.value?.cronogramaPagos
+      || simulacionActual.value?.cronograma_pagos;
+
+  if (!cronograma) return [];
+
+  return cronograma.map(p => ({
+    label: `Cuota ${p.numeroCuota}`,
+    value: p.numeroCuota
+  }));
+});
+
+const cuotaSeleccionadaValor = computed(() => {
+  if (!cuotaSeleccionada.value || !simulacionActual.value) return 0;
+
+  const cronograma = simulacionActual.value.cronogramaPagos
+      || simulacionActual.value.cronograma_pagos;
+
+  if (!cronograma) return 0;
+
+  const pago = cronograma.find(p => p.numeroCuota === cuotaSeleccionada.value);
+
+  return pago ? Number(pago.cuotaTotal) : 0;
+});
 
 // Lifecycle
 onMounted(async () => {
@@ -931,34 +973,67 @@ onMounted(async () => {
         />
       </div>
 
+      <!-- ======================= -->
+      <!-- RESUMEN DEL CÁLCULO     -->
+      <!-- ======================= -->
       <div v-if="simulacionActual" class="resumen-section">
-        <h3 class="resumen-title">Resumen del calculo</h3>
+
+        <h3 class="resumen-title">Resumen del cálculo</h3>
 
         <div class="resumen-grid">
+
+          <!-- Monto financiado -->
           <div class="resumen-item">
-            <span class="resumen-label">Monto Financiado:</span>
-            <span class="resumen-value">S/ {{ simulacionActual.montoFinanciado?.toFixed(2) }}</span>
+            <span class="resumen-label">Monto financiado:</span>
+            <span class="resumen-value">
+        S/ {{ simulacionActual.montoFinanciado?.toFixed(2) }}
+      </span>
           </div>
-          <div class="resumen-item">
-            <span class="resumen-label">TCEA:</span>
-            <span class="resumen-value">{{ simulacionActual.tcea?.toFixed(2) }}%</span>
-          </div>
-          <div class="resumen-item">
-            <span class="resumen-label">Cuota mensual:</span>
-            <span class="resumen-value">S/ {{ simulacionActual.cuotaMensual?.toFixed(2) }}</span>
-          </div>
+
+          <!-- VAN -->
           <div class="resumen-item">
             <span class="resumen-label">VAN:</span>
-            <span class="resumen-value">S/ {{ simulacionActual.van?.toFixed(2) }}</span>
+            <span class="resumen-value">
+        S/ {{ simulacionActual.van?.toFixed(2) }}
+      </span>
           </div>
+
+          <!-- TCEA -->
           <div class="resumen-item">
-            <span class="resumen-label">Intereses:</span>
-            <span class="resumen-value">S/ {{ simulacionActual.totalIntereses?.toFixed(2) }}</span>
+            <span class="resumen-label">TCEA:</span>
+            <span class="resumen-value">
+        {{ simulacionActual.tcea?.toFixed(2) }}%
+      </span>
           </div>
+
+          <!-- TIR -->
           <div class="resumen-item">
             <span class="resumen-label">TIR:</span>
-            <span class="resumen-value">{{ simulacionActual.tir?.toFixed(2) }}%</span>
+            <span class="resumen-value">
+        {{ simulacionActual.tir?.toFixed(2) }}%
+      </span>
           </div>
+
+        </div>
+
+        <!-- ======================= -->
+        <!-- SELECTOR DE CUOTA       -->
+        <!-- ======================= -->
+        <div class="cuota-selector">
+          <label class="cuota-label">Cuota:</label>
+
+          <Dropdown
+              v-model="cuotaSeleccionada"
+              :options="cuotaOptions"
+              optionLabel="label"
+              optionValue="value"
+              class="cuota-select"
+              appendTo="body"
+          />
+
+          <span class="cuota-valor">
+      S/ {{ cuotaSeleccionadaValor?.toFixed(2) || '0.00' }}
+    </span>
         </div>
 
         <div class="resumen-button-container">
@@ -1167,6 +1242,28 @@ onMounted(async () => {
     font-size: 0.875rem;
     padding: 0.625rem 1rem !important;
   }
+}
+.cuota-selector {
+  margin: 1.5rem auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: white;
+  font-size: 1rem;
+}
+
+.cuota-label {
+  font-weight: bold;
+}
+
+.cuota-select {
+  width: 140px;
+}
+
+.cuota-valor {
+  font-weight: 700;
+  font-size: 1.3rem;
 }
 
 :deep(.p-inputtext),
