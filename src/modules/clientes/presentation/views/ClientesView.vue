@@ -44,12 +44,6 @@ const formatCurrency = (value) => {
   }).format(value);
 };
 
-const openCreateDialog = () => {
-  selectedCliente.value = null;
-  isEditMode.value = false;
-  dialogVisible.value = true;
-};
-
 const openEditDialog = async (cliente) => {
   const data = await fetchClienteById(cliente.id);
 
@@ -65,20 +59,22 @@ const openEditDialog = async (cliente) => {
     esPersonaDesplazada: data.esPersonaDesplazada,
 
     vivienda: {
-      proyecto: data.vivienda.proyecto,
-      tipoVivienda: data.vivienda.tipoVivienda,
-      valorVivienda: data.vivienda.valorVivienda,
-      modalidadVivienda: data.vivienda.modalidadVivienda,
-      cuotaInicial: data.vivienda.cuotaInicial,
-      cuotaInicialPorcentaje: data.vivienda.cuotaInicialPorcentaje,
-      tipoVIS: data.vivienda.tipoVIS,
-      ubicacion: data.vivienda.ubicacion
+      id: data.vivienda?.id || null,   // ← CLAVE PARA UPDATE
+      proyecto: data.vivienda?.proyecto || "",
+      tipoVivienda: data.vivienda?.tipoVivienda || "",
+      valorVivienda: data.vivienda?.valorVivienda || 0,
+      modalidadVivienda: data.vivienda?.modalidadVivienda || "",
+      cuotaInicial: data.vivienda?.cuotaInicial || 0,
+      cuotaInicialPorcentaje: data.vivienda?.cuotaInicialPorcentaje || 0,
+      tipoVIS: data.vivienda?.tipoVIS || "",
+      ubicacion: data.vivienda?.ubicacion || ""
     }
   };
 
   isEditMode.value = true;
   dialogVisible.value = true;
 };
+
 
 
 
