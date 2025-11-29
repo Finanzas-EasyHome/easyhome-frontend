@@ -5,34 +5,6 @@ import { Simulacion } from '/src/modules/simulador/domain/entities/Simulacion.js
 /**
  * Caso de uso: Calcular Simulación de Plan de Pagos
  * Implementación del Método Francés según documento de Finanzas e Ingeniería Económica
- *
- * ESTRUCTURA DEL CRONOGRAMA (según Excel de referencia):
- * =====================================================
- * - N° (Número de cuota)
- * - TEA (Tasa Efectiva Anual)
- * - i' = TEP = TEM (Tasa Efectiva del Período)
- * - P.G. (Período de Gracia: P=Parcial, T=Total, S=Sin gracia)
- * - Saldo Inicial
- * - Interés
- * - Cuota (inc Seg Des) - Cuota incluyendo Seguro Desgravamen
- * - Amort. (Amortización)
- * - Seguro desgrav (Seguro de Desgravamen)
- * - Seguro riesgo (Seguro de Inmueble)
- * - Comisión
- * - Portes
- * - Gastos Adm. (Gastos Administrativos)
- * - Saldo Final
- * - Flujo (Flujo de caja del período)
- *
- * FLUJO DE CAJA:
- * - Flujo 0: +Monto del Préstamo (POSITIVO - cliente recibe dinero)
- * - Flujo 1-N: -Pagos (NEGATIVO - cliente paga cuotas)
- *
- * INDICADORES:
- * - TDP = (1 + COK)^(30/360) - 1
- * - TIR = Tasa que hace VAN = 0
- * - TCEA = ((1 + TIR)^12) - 1
- * - VAN = Σ(Flujo_i / (1 + TDP)^i)
  */
 export class CalcularSimulacion {
     constructor(repository) {
@@ -119,11 +91,25 @@ export class CalcularSimulacion {
 
         // =============================================
         // OTROS COSTOS PERIÓDICOS (montos fijos por período)
-        // IMPORTANTE: Gastos Admin es POR PERÍODO (mensual), no anual
+        // CORRECCIÓN: Aceptar cargosAdministrativos del repositorio
         // =============================================
-        sim.cargosAdministrativos = Number(sim.cargos_administrativos ?? sim.cargosAdministrativos ?? sim.cargos_admin ?? 0);
-        sim.comision = Number(sim.comision ?? sim.comision_desembolso ?? sim.comisionDesembolso ?? 0);
+        sim.cargosAdministrativos = Number(
+            sim.cargosAdministrativos ??
+            sim.cargos_administrativos ??
+            sim.cargos_admin ??
+            0
+        );
+
+        sim.comision = Number(
+            sim.comision ??
+            sim.comision_desembolso ??
+            sim.comisionDesembolso ??
+            0
+        );
+
         sim.portes = Number(sim.portes ?? 0);
+
+        console.log("🔍 DEBUG - Cargos Administrativos:", sim.cargosAdministrativos);
 
         // Parámetros de cálculo
         sim.diasPorAnio = 360;
@@ -253,9 +239,9 @@ export class CalcularSimulacion {
                     amortizacion = 0;
                     saldoFinal = SII + interes;
                 } else if (gTipo === "parcial") {
-                    // GRACIA PARCIAL: Solo paga intereses + seguro desgravamen
+                    // GRACIA PARCIAL: Solo paga intereses (SIN seguro desgravamen)
                     periodoGraciaLabel = 'P';
-                    cuotaConSegDes = interes + seguroDesgravamen;
+                    cuotaConSegDes = interes;  // ✅ Solo intereses
                     amortizacion = 0;
                     saldoFinal = SII;
                 }
