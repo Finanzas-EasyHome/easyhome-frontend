@@ -220,10 +220,15 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
             const userId = this.getCurrentUserId();
 
             const payload = {
-
                 user_id: userId,
-                cliente_tp_id: simulacion.cliente_id,
+
+
                 entidad_id: simulacion.entidad_financiera,
+
+                cliente_tp_id: simulacion.cliente_id ?? null,
+                cliente_ncmv_id: simulacion.cliente_ncmv_id ?? null,
+                vivienda_tp_id: simulacion.vivienda_tp_id ?? null,
+                vivienda_ncmv_id: simulacion.vivienda_ncmv_id ?? null,
 
                 programa: simulacion.programa,
                 valor_vivienda: simulacion.valor_vivienda,
@@ -231,22 +236,20 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
                 cuota_inicial_porcentaje: simulacion.cuota_inicial_porcentaje,
                 cuota_inicial_monto: simulacion.cuota_inicial_monto,
 
-                bono_monto: simulacion.bono_monto,
+                bono_monto: simulacion.monto_bono,
                 saldo_financiar: simulacion.saldo_financiar,
 
-                tasa_descuento: simulacion.tasa_descuento,
                 tipo_tasa: "TEA",
                 tasa_valor: simulacion.tasa_valor,
+                tasa_descuento: simulacion.tasa_descuento ?? 0,
 
                 seguro_desgravamen: simulacion.seguro_desgravamen,
                 seguro_inmueble: simulacion.seguro_inmueble,
-
+                cargos_admin: simulacion.cargos_admin ?? 0,
                 tasacion: simulacion.tasacion,
                 gastos_notariales: simulacion.gastos_notariales,
                 gastos_registrales: simulacion.gastos_registrales,
-                cargos_administrativos: simulacion.cargos_administrativos,
-
-                comision_desembolso: simulacion.comision_desembolso,
+                comision_envio: simulacion.comision_envio ?? 0,
 
                 plazo_tipo: simulacion.plazo_tipo,
                 plazo_valor: simulacion.plazo_valor,
@@ -256,12 +259,12 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
                 fecha_inicio_pago: simulacion.fecha_inicio_pago,
                 fecha_creacion: new Date().toISOString(),
 
-                monto_financiado: simulacion.monto_financiado,
+                cuota: simulacion.cuota,
                 tcea: simulacion.tcea,
                 van: simulacion.van,
-                tir: simulacion.tir,
-                cuota: simulacion.cuota
+                tir: simulacion.tir
             };
+
 
             const { data, error } = await supabase
                 .from('simulaciones_plan_de_pagos')
