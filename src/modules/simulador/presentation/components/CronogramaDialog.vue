@@ -34,27 +34,33 @@ const cronogramaVisible = computed(() => {
 const totalData = computed(() => {
   if (!props.cronograma || props.cronograma.length === 0) {
     return {
-      cuotaBase: 0,
       interes: 0,
+      cuotaConSegDes: 0,
       amortizacion: 0,
-      seguros: 0,
-      cuotaTotal: 0
+      seguroDesgravamen: 0,
+      seguroRiesgo: 0,
+      gastosAdmin: 0,
+      flujo: 0
     };
   }
 
   return props.cronograma.reduce((acc, pago) => {
-    acc.cuotaBase += Number(pago.cuotaBase || 0);
     acc.interes += Number(pago.interes || 0);
+    acc.cuotaConSegDes += Number(pago.cuotaConSegDes || pago.cuotaBase || 0);
     acc.amortizacion += Number(pago.amortizacion || 0);
-    acc.seguros += Number(pago.seguros || 0);
-    acc.cuotaTotal += Number(pago.cuotaTotal || 0);
+    acc.seguroDesgravamen += Number(pago.seguroDesgravamen || 0);
+    acc.seguroRiesgo += Number(pago.seguroRiesgo || pago.seguroInmueble || 0);
+    acc.gastosAdmin += Number(pago.gastosAdmin || pago.portes || 0);
+    acc.flujo += Math.abs(Number(pago.flujo || pago.flujoNeto || 0));
     return acc;
   }, {
-    cuotaBase: 0,
     interes: 0,
+    cuotaConSegDes: 0,
     amortizacion: 0,
-    seguros: 0,
-    cuotaTotal: 0
+    seguroDesgravamen: 0,
+    seguroRiesgo: 0,
+    gastosAdmin: 0,
+    flujo: 0
   });
 });
 
@@ -67,14 +73,9 @@ const formatCurrency = (value) => {
   }).format(numero);
 };
 
-const formatDate = (dateString) => {
-  if (!dateString) return '';
-  const date = new Date(dateString + 'T00:00:00');
-  return date.toLocaleDateString('es-PE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
+const formatPercent = (value) => {
+  const numero = Number(value || 0);
+  return numero.toFixed(5) + '%';
 };
 
 const handleClose = () => {
@@ -89,7 +90,7 @@ const exportarExcel = () => {
 <template>
   <Dialog
       :visible="visible"
-      :style="{ width: '95%', maxWidth: '1400px' }"
+      :style="{ width: '98%', maxWidth: '1600px' }"
       header="Cronograma de Pagos"
       :modal="true"
       class="cronograma-dialog"
@@ -112,8 +113,12 @@ const exportarExcel = () => {
             <span class="info-value">{{ simulacion.plazoPrestamo }} meses</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Tasa:</span>
-            <span class="info-value">{{ simulacion.tasaInteres }}% {{ simulacion.tipoTasa }}</span>
+            <span class="info-label">TEA:</span>
+            <span class="info-value">{{ simulacion.tasaInteres }}%</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">TEP:</span>
+            <span class="info-value">{{ simulacion.TEP ? (simulacion.TEP * 100).toFixed(5) : '0.00000' }}%</span>
           </div>
           <div class="info-item">
             <span class="info-label">Cuota Mensual:</span>
@@ -124,7 +129,7 @@ const exportarExcel = () => {
 
       <Divider />
 
-      <!-- Tabla de cronograma -->
+      <!-- Tabla de cronograma con columnas del Excel -->
       <div class="table-wrapper">
         <DataTable
             :value="cronogramaVisible"
@@ -132,61 +137,127 @@ const exportarExcel = () => {
             responsiveLayout="scroll"
             class="cronograma-table"
             stripedRows
+            size="small"
         >
-          <Column field="numeroCuota" header="N°" style="min-width: 60px; text-align: center" :frozen="true">
+          <!-- N° -->
+          <Column field="numeroCuota" header="N°" style="min-width: 50px; text-align: center" :frozen="true">
             <template #body="slotProps">
               <span class="font-semibold">{{ slotProps.data.numeroCuota }}</span>
             </template>
           </Column>
 
-          <Column field="fechaPago" header="Fecha de Pago" style="min-width: 120px">
+          <!-- TEA -->
+          <Column field="TEA" header="TEA" style="min-width: 80px; text-align: center">
             <template #body="slotProps">
-              {{ formatDate(slotProps.data.fechaPago) }}
+              {{ slotProps.data.TEA || simulacion?.tasaInteres }}%
             </template>
           </Column>
 
-          <Column field="saldoInicial" header="Saldo Inicial" style="min-width: 130px; text-align: right">
+          <!-- TEP (i' = TEP = TEM) -->
+          <Column field="TEP" header="TEP" style="min-width: 90px; text-align: center">
+            <template #body="slotProps">
+              {{ slotProps.data.TEP || (simulacion?.TEP ? (simulacion.TEP * 100).toFixed(5) : '0') }}%
+            </template>
+          </Column>
+
+          <!-- P.G. (Período de Gracia) -->
+          <Column field="periodoGracia" header="P.G." style="min-width: 50px; text-align: center">
+            <template #body="slotProps">
+              <span :class="{'text-warning font-bold': slotProps.data.periodoGracia === 'P' || slotProps.data.periodoGracia === 'T'}">
+                {{ slotProps.data.periodoGracia || 'S' }}
+              </span>
+            </template>
+          </Column>
+
+          <!-- Saldo Inicial -->
+          <Column field="saldoInicial" header="Saldo Inicial" style="min-width: 110px; text-align: right">
             <template #body="slotProps">
               <span class="moneda">S/</span> {{ formatCurrency(slotProps.data.saldoInicial) }}
             </template>
           </Column>
 
-          <Column field="cuotaBase" header="Cuota Base" style="min-width: 120px; text-align: right">
+          <!-- Interés -->
+          <Column field="interes" header="Interés" style="min-width: 90px; text-align: right">
             <template #body="slotProps">
-              <span class="moneda">S/</span> {{ formatCurrency(slotProps.data.cuotaBase) }}
+              <span class="text-danger">({{ formatCurrency(slotProps.data.interes) }})</span>
             </template>
           </Column>
 
-          <Column field="interes" header="Interés" style="min-width: 120px; text-align: right">
+          <!-- Cuota (inc Seg Des) -->
+          <Column header="Cuota (inc Seg Des)" style="min-width: 120px; text-align: right">
             <template #body="slotProps">
-              <span class="text-warning"><span class="moneda">S/</span> {{ formatCurrency(slotProps.data.interes) }}</span>
+              <span class="text-danger">({{ formatCurrency(slotProps.data.cuotaConSegDes || slotProps.data.cuotaBase) }})</span>
             </template>
           </Column>
 
-          <Column field="amortizacion" header="Amortización" style="min-width: 130px; text-align: right">
+          <!-- Amortización -->
+          <Column field="amortizacion" header="Amort." style="min-width: 90px; text-align: right">
             <template #body="slotProps">
-              <span class="text-success"><span class="moneda">S/</span> {{ formatCurrency(slotProps.data.amortizacion) }}</span>
+              <span class="text-danger">({{ formatCurrency(slotProps.data.amortizacion) }})</span>
             </template>
           </Column>
 
-          <Column field="seguros" header="Seguros" style="min-width: 110px; text-align: right">
+          <!-- Seguro Desgravamen -->
+          <Column header="Seg. Desgrav" style="min-width: 100px; text-align: right">
             <template #body="slotProps">
-              <span class="moneda">S/</span> {{ formatCurrency(slotProps.data.seguros) }}
+              <span class="text-danger">({{ formatCurrency(slotProps.data.seguroDesgravamen) }})</span>
             </template>
           </Column>
 
-          <Column field="cuotaTotal" header="Cuota Total" style="min-width: 130px; text-align: right">
+          <!-- Seguro Riesgo -->
+          <Column header="Seg. Riesgo" style="min-width: 90px; text-align: right">
             <template #body="slotProps">
-              <span class="font-bold"><span class="moneda">S/</span> {{ formatCurrency(slotProps.data.cuotaTotal) }}</span>
+              <span class="text-danger">({{ formatCurrency(slotProps.data.seguroRiesgo || slotProps.data.seguroInmueble) }})</span>
             </template>
           </Column>
 
-          <Column field="saldoFinal" header="Saldo Final" style="min-width: 130px; text-align: right">
+          <!-- Comisión -->
+          <Column field="comision" header="Comisión" style="min-width: 80px; text-align: right">
             <template #body="slotProps">
-              <span class="font-semibold"><span class="moneda">S/</span> {{ formatCurrency(slotProps.data.saldoFinal) }}</span>
+              {{ formatCurrency(slotProps.data.comision || 0) }}
+            </template>
+          </Column>
+
+          <!-- Portes -->
+          <Column field="portes" header="Portes" style="min-width: 70px; text-align: right">
+            <template #body="slotProps">
+              {{ formatCurrency(slotProps.data.portes || 0) }}
+            </template>
+          </Column>
+
+          <!-- Gastos Admin -->
+          <Column header="Gastos Adm." style="min-width: 90px; text-align: right">
+            <template #body="slotProps">
+              <span class="text-danger">({{ formatCurrency(slotProps.data.gastosAdmin || 0) }})</span>
+            </template>
+          </Column>
+
+          <!-- Saldo Final -->
+          <Column field="saldoFinal" header="Saldo Final" style="min-width: 110px; text-align: right">
+            <template #body="slotProps">
+              <span class="font-semibold">
+                <span class="moneda">S/</span> {{ formatCurrency(slotProps.data.saldoFinal) }}
+              </span>
+            </template>
+          </Column>
+
+          <!-- Flujo -->
+          <Column field="flujo" header="Flujo" style="min-width: 100px; text-align: right">
+            <template #body="slotProps">
+              <span class="text-danger font-bold">
+                ({{ formatCurrency(Math.abs(slotProps.data.flujo || slotProps.data.flujoNeto || 0)) }})
+              </span>
             </template>
           </Column>
         </DataTable>
+      </div>
+
+      <!-- Flujo Inicial (Préstamo) -->
+      <div class="flujo-inicial">
+        <span class="flujo-label">Flujo Inicial (Préstamo):</span>
+        <span class="flujo-value text-success font-bold">
+          S/ {{ formatCurrency(simulacion?.montoFinanciado || simulacion?.montoPrestamo || 0) }}
+        </span>
       </div>
 
       <!-- Nota informativa -->
@@ -200,10 +271,6 @@ const exportarExcel = () => {
         <h3 class="summary-title">Resumen Total del Préstamo</h3>
         <div class="summary-grid">
           <div class="summary-item">
-            <span class="summary-label">Total Cuota Base:</span>
-            <span class="summary-value">S/ {{ formatCurrency(totalData.cuotaBase) }}</span>
-          </div>
-          <div class="summary-item">
             <span class="summary-label">Total Intereses:</span>
             <span class="summary-value text-warning">S/ {{ formatCurrency(totalData.interes) }}</span>
           </div>
@@ -212,12 +279,20 @@ const exportarExcel = () => {
             <span class="summary-value text-success">S/ {{ formatCurrency(totalData.amortizacion) }}</span>
           </div>
           <div class="summary-item">
-            <span class="summary-label">Total Seguros:</span>
-            <span class="summary-value">S/ {{ formatCurrency(totalData.seguros) }}</span>
+            <span class="summary-label">Total Seg. Desgravamen:</span>
+            <span class="summary-value">S/ {{ formatCurrency(totalData.seguroDesgravamen) }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Total Seg. Riesgo:</span>
+            <span class="summary-value">S/ {{ formatCurrency(totalData.seguroRiesgo) }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Total Gastos Admin:</span>
+            <span class="summary-value">S/ {{ formatCurrency(totalData.gastosAdmin) }}</span>
           </div>
           <div class="summary-item highlight">
-            <span class="summary-label">TOTAL A PAGAR:</span>
-            <span class="summary-value font-bold">S/ {{ formatCurrency(totalData.cuotaTotal) }}</span>
+            <span class="summary-label">TOTAL FLUJOS:</span>
+            <span class="summary-value font-bold">S/ {{ formatCurrency(totalData.flujo) }}</span>
           </div>
         </div>
       </div>
@@ -258,7 +333,7 @@ const exportarExcel = () => {
 
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1rem;
 }
 
@@ -283,11 +358,32 @@ const exportarExcel = () => {
 }
 
 .table-wrapper {
-  max-height: 500px;
+  max-height: 450px;
   overflow: auto;
   margin-bottom: 1rem;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
+}
+
+.flujo-inicial {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.flujo-label {
+  font-weight: 600;
+  color: #065f46;
+}
+
+.flujo-value {
+  font-size: 1.125rem;
 }
 
 .info-note {
@@ -325,7 +421,7 @@ const exportarExcel = () => {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
 }
 
@@ -357,8 +453,9 @@ const exportarExcel = () => {
 }
 
 .summary-value {
-  font-size: 1.125rem;
+  font-size: 1rem;
   color: #374151;
+  font-weight: 600;
 }
 
 .moneda {
@@ -377,6 +474,10 @@ const exportarExcel = () => {
 
 .text-primary {
   color: #059669;
+}
+
+.text-danger {
+  color: #dc2626;
 }
 
 .font-bold {
@@ -447,7 +548,7 @@ const exportarExcel = () => {
 
 /* Tabla personalizada */
 .cronograma-table.p-datatable {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
 .cronograma-table.p-datatable .p-datatable-thead > tr > th {
@@ -455,16 +556,16 @@ const exportarExcel = () => {
   color: #374151;
   font-weight: 700;
   border-bottom: 2px solid #e5e7eb;
-  padding: 0.75rem 0.5rem;
-  font-size: 0.8125rem;
+  padding: 0.5rem 0.4rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.025em;
   white-space: nowrap;
 }
 
 .cronograma-table.p-datatable .p-datatable-tbody > tr > td {
-  padding: 0.75rem 0.5rem;
-  font-size: 0.875rem;
+  padding: 0.5rem 0.4rem;
+  font-size: 0.8rem;
   border-bottom: 1px solid #f3f4f6;
   white-space: nowrap;
 }
