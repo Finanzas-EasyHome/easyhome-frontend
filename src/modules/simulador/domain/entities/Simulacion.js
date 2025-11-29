@@ -103,6 +103,13 @@ export class Simulacion {
         this.cargosAdmin = Number(
             data.cargosAdmin ?? data.cargos_admin ?? 0
         );
+        this.cargosAdministrativos = Number(
+            data.cargosAdministrativos ??
+            data.cargos_administrativos ??
+            data.cargos_admin ??
+            data.cargosAdmin ??
+            0
+        );
         this.comisionDesembolso = Number(
             data.comisionDesembolso ??
             data.comision_envio ??

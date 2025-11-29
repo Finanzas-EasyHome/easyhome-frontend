@@ -171,23 +171,99 @@ watch(formData, (nuevo) => {
 }, { deep: true });
 
 
-// Guardar
+// ============================================
+// FUNCIÓN handleGuardar - Con Debug
+// ============================================
 const handleGuardar = () => {
   const payload = { ...formData.value };
 
+  console.log("📦 PAYLOAD ANTES DE CONVERTIR:", {
+    seguroDesgravamen: payload.seguroDesgravamen,
+    seguroInmueble: payload.seguroInmueble,
+    cargosAdministrativos: payload.cargosAdministrativos,
+    tasacion: payload.tasacion,
+    gastosNotariales: payload.gastosNotariales,
+    gastosRegistrales: payload.gastosRegistrales,
+    comisionDesembolso: payload.comisionDesembolso
+  });
+
+  // ✅ Convertir solo los PORCENTAJES de vuelta a decimal
   payload.seguroDesgravamen = payload.seguroDesgravamen / 100;
   payload.seguroInmueble = payload.seguroInmueble / 100;
-  emit("guardar", payload );
+
+  // ✅ Los montos (S/) quedan igual
+  // - cargosAdministrativos
+  // - tasacion
+  // - gastosNotariales
+  // - gastosRegistrales
+  // - comisionDesembolso
+
+  console.log("📦 PAYLOAD DESPUÉS DE CONVERTIR:", {
+    seguroDesgravamen: payload.seguroDesgravamen,
+    seguroInmueble: payload.seguroInmueble,
+    cargosAdministrativos: payload.cargosAdministrativos,
+    tasacion: payload.tasacion,
+    gastosNotariales: payload.gastosNotariales,
+    gastosRegistrales: payload.gastosRegistrales,
+    comisionDesembolso: payload.comisionDesembolso
+  });
+
+  emit("guardar", payload);
   emit("update:visible", false);
 };
 
-// Cerrar
-const handleClose = () => emit("update:visible", false);
+// ============================================
+// WATCH para cargar costos de entidad
+// ============================================
+watch(() => formData.value.entidadFinanciera, async (entidadId) => {
+  if (!entidadId) return;
 
-// Modo edición
-const handleEditar = () => {
-  console.log("Modo edición");
-};
+  try {
+    loading.value = true;
+
+    // Obtener costos desde el repo
+    const costos = await repository.getCostosEntidad(entidadId);
+
+    console.log("✅ COSTOS DESDE SUPABASE:", costos);
+
+    // Guardar rangos completos
+    rangos.value = {
+      seguroDesgravamen: costos.seguroDesgravamen,
+      seguroInmueble: costos.seguroInmueble,
+      tasacion: costos.tasacion,
+      gastosNotariales: costos.gastosNotariales,
+      cargosAdministrativos: costos.cargosAdministrativos,
+      gastosRegistrales: costos.gastosRegistrales
+    };
+
+    // ⚡ Asignar valores mínimos
+    // PORCENTAJES: multiplicar * 100 para mostrar en el input
+    formData.value.seguroDesgravamen = costos.seguroDesgravamen.min * 100;
+    formData.value.seguroInmueble = costos.seguroInmueble.min * 100;
+
+    // MONTOS: asignar directamente
+    formData.value.tasacion = costos.tasacion.min;
+    formData.value.gastosNotariales = costos.gastosNotariales.min;
+    formData.value.cargosAdministrativos = costos.cargosAdministrativos.min;
+    formData.value.gastosRegistrales = costos.gastosRegistrales.min;
+    formData.value.comisionDesembolso = costos.comisionDesembolso;
+
+    console.log("📝 FORM DATA DESPUÉS DE CARGAR:", {
+      seguroDesgravamen: formData.value.seguroDesgravamen,
+      seguroInmueble: formData.value.seguroInmueble,
+      cargosAdministrativos: formData.value.cargosAdministrativos,
+      tasacion: formData.value.tasacion,
+      gastosNotariales: formData.value.gastosNotariales,
+      gastosRegistrales: formData.value.gastosRegistrales,
+      comisionDesembolso: formData.value.comisionDesembolso
+    });
+
+  } catch (error) {
+    console.error("❌ Error cargando costos:", error);
+  } finally {
+    loading.value = false;
+  }
+});
 </script>
 
 

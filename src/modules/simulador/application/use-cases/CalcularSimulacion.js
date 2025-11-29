@@ -312,7 +312,7 @@ export class CalcularSimulacion {
                 flujoNeto = -(cuotaConSegDes + seguroDesgravamen + seguroRiesgoPeriodo + comisionPeriodo + portesPeriodo + gastosAdminPeriodo);
             } else {
                 // Período SIN GRACIA (S): NO incluye SegDesgrav ni GasAdm
-                flujoNeto = -(cuotaConSegDes + seguroRiesgoPeriodo + comisionPeriodo + portesPeriodo);
+                flujoNeto = -(cuotaConSegDes + seguroRiesgoPeriodo + comisionPeriodo + portesPeriodo+ gastosAdminPeriodo);
             }
 
             // Acumular totales
