@@ -145,12 +145,23 @@ export class Simulacion {
 
     // Lo llama CalcularSimulacion
     calculateMontoFinanciado() {
-        this.montoFinanciado =
+        // Saldo base
+        const saldo =
             (this.valorVivienda || 0) -
             (this.cuotaInicial || 0) -
             (this.montoBono || 0);
 
-        if (this.montoFinanciado < 0) this.montoFinanciado = 0;
+        // Costos que sí se financian
+        const tasacion = this.tasacion || 0;
+        const gastosNotariales = this.gastosNotariales || 0;
+        const gastosRegistrales = this.gastosRegistrales || 0;
+
+        // Monto final del préstamo (saldo + costos financiables)
+        this.montoFinanciado =
+            saldo +
+            tasacion +
+            gastosNotariales +
+            gastosRegistrales;
 
         return this.montoFinanciado;
     }

@@ -374,7 +374,7 @@ const handleEditar = () => {
         <!-- Comisión por desembolso -->
         <div class="col-12">
           <div class="field">
-            <label for="comision">Comisión por desembolso</label>
+            <label for="comision">Comisión por Envio</label>
             <InputNumber
                 id="comision"
                 v-model="formData.comisionDesembolso"

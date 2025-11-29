@@ -203,8 +203,6 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
         return [
             { value: 'techoPropio', label: 'Techo Propio' },
             { value: 'miVivienda', label: 'Nuevo Crédito MiVivienda' },
-            { value: 'miViviendaVerde', label: 'MiVivienda Verde' },
-            { value: 'convencional', label: 'Crédito Hipotecario Convencional' },
         ];
     }
 
@@ -220,46 +218,54 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
             const userId = this.getCurrentUserId();
 
             const payload = {
+                id: simulacion.id ?? crypto.randomUUID(),
+
                 user_id: userId,
 
+                // Relaciones
+                cliente_tp_id: simulacion.clienteId ?? null,
+                cliente_ncmv_id: null,
+                vivienda_tp_id: simulacion.viviendaId ?? null,
+                vivienda_ncmv_id: null,
+                entidad_id: simulacion.entidadId ?? null,
 
-                entidad_id: simulacion.entidad_financiera,
-
-                cliente_tp_id: simulacion.cliente_id ?? null,
-                cliente_ncmv_id: simulacion.cliente_ncmv_id ?? null,
-                vivienda_tp_id: simulacion.vivienda_tp_id ?? null,
-                vivienda_ncmv_id: simulacion.vivienda_ncmv_id ?? null,
-
+                // Datos base
                 programa: simulacion.programa,
-                valor_vivienda: simulacion.valor_vivienda,
+                valor_vivienda: simulacion.valorVivienda,
 
-                cuota_inicial_porcentaje: simulacion.cuota_inicial_porcentaje,
-                cuota_inicial_monto: simulacion.cuota_inicial_monto,
+                cuota_inicial_porcentaje: simulacion.cuotaInicialPorcentaje,
+                cuota_inicial_monto: simulacion.cuotaInicial,
 
-                bono_monto: simulacion.monto_bono,
-                saldo_financiar: simulacion.saldo_financiar,
+                bono_monto: simulacion.montoBono,
+                saldo_financiar: simulacion.montoFinanciado,
 
+                // Tasas
                 tipo_tasa: "TEA",
-                tasa_valor: simulacion.tasa_valor,
-                tasa_descuento: simulacion.tasa_descuento ?? 0,
+                tasa_valor: simulacion.tasaInteres,
+                tasa_descuento: simulacion.tasaDescuento ?? 0,
 
-                seguro_desgravamen: simulacion.seguro_desgravamen,
-                seguro_inmueble: simulacion.seguro_inmueble,
-                cargos_admin: simulacion.cargos_admin ?? 0,
+                // Costos
+                seguro_desgravamen: simulacion.seguroDesgravamen,
+                seguro_inmueble: simulacion.seguroInmueble,
+                cargos_admin: simulacion.cargosAdmin ?? 0,
                 tasacion: simulacion.tasacion,
-                gastos_notariales: simulacion.gastos_notariales,
-                gastos_registrales: simulacion.gastos_registrales,
-                comision_envio: simulacion.comision_envio ?? 0,
+                gastos_notariales: simulacion.gastosNotariales,
+                gastos_registrales: simulacion.gastosRegistrales,
+                comision_envio: simulacion.comisionDesembolso ?? 0,
 
-                plazo_tipo: simulacion.plazo_tipo,
-                plazo_valor: simulacion.plazo_valor,
-                gracia_tipo: simulacion.gracia_tipo,
-                gracia_meses: simulacion.gracia_meses,
+                // Plazo
+                plazo_tipo: simulacion.plazoTipo,
+                plazo_valor: simulacion.plazoPrestamo,
 
-                fecha_inicio_pago: simulacion.fecha_inicio_pago,
+                // Gracia
+                gracia_tipo: simulacion.tipoPeriodoGracia,
+                gracia_meses: simulacion.periodoGracia,
+
+                fecha_inicio_pago: simulacion.fechaInicioPago,
                 fecha_creacion: new Date().toISOString(),
 
-                cuota: simulacion.cuota,
+                // Resultados
+                cuota: simulacion.cuotaMensual,
                 tcea: simulacion.tcea,
                 van: simulacion.van,
                 tir: simulacion.tir
@@ -273,8 +279,9 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
                 .single();
 
             if (error) {
-                console.error('Error al guardar simulación:', error);
-                throw new Error('No se pudo guardar la simulación');
+                console.error("❌ SUPABASE ERROR:", error);
+                console.error("❌ PAYLOAD ENVIADO:", payload);
+                throw error; // <-- devolver error REAL, no uno genérico
             }
 
             return data;

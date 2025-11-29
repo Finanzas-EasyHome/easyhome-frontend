@@ -228,24 +228,34 @@ export const useSimulador = () => {
             'N° Cuota',
             'Fecha de Pago',
             'Saldo Inicial',
-            'Cuota Base',
+            'Cuota Base (inc. Seg. Des)',
             'Interés',
             'Amortización',
-            'Seguros',
+            'Seg. Desgravamen',
+            'Seg. Riesgo',
+            'Comisión',
+            'Portes',
+            'Gastos Adm.',
             'Cuota Total',
-            'Saldo Final'
+            'Saldo Final',
+            'Flujo'
         ];
 
         const rows = cronograma.map(pago => [
             pago.numeroCuota ?? '',
             pago.fechaPago ?? '',
             formatCurrency(pago.saldoInicial),
-            formatCurrency(pago.cuotaBase),
+            formatCurrency(pago.cuotaBase ?? pago.cuotaConSegDes),
             formatCurrency(pago.interes),
             formatCurrency(pago.amortizacion),
-            formatCurrency(pago.seguros),
+            formatCurrency(pago.seguroDesgravamen),
+            formatCurrency(pago.seguroRiesgo ?? pago.seguroInmueble),
+            formatCurrency(pago.comision),
+            formatCurrency(pago.portes),
+            formatCurrency(pago.gastosAdmin),
             formatCurrency(pago.cuotaTotal),
-            formatCurrency(pago.saldoFinal)
+            formatCurrency(pago.saldoFinal),
+            formatCurrency(Math.abs(pago.flujo ?? pago.flujoNeto))
         ]);
 
         const tableRows = [headerRow, ...rows]
