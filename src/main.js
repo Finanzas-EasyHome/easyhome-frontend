@@ -1,10 +1,14 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import PrimeVue from 'primevue/config';
-import Aura from '@primeuix/themes/aura'
+import Aura from '@primeuix/themes/aura';
+
 import ToastService from 'primevue/toastservice';
 import ConfirmationService from 'primevue/confirmationservice';
 import axios from 'axios';
+
+// 🔥 CORRECTO: ESTE ES EL ARCHIVO VERDADERO
+import { useAuthStore } from '/src/modules/iam/services/authStore.js';
 
 import App from './App.vue';
 import router from './router/index.js';
@@ -34,36 +38,49 @@ import 'primeflex/primeflex.css';
 
 // Custom Styles
 import '/src/style.css';
-import {Checkbox, InputGroup, InputGroupAddon, RadioButton} from "primevue";
+import { Checkbox, InputGroup, InputGroupAddon, RadioButton } from "primevue";
 
-baseUrl: import.meta.env.VITE_API_BASE_URL;
-// Axios Configuration
+
+// ===============================
+// CREATE APP
+// ===============================
+const app = createApp(App);
+
+// ===============================
+// PINIA (debe estar antes del AuthStore)
+// ===============================
+const pinia = createPinia();
+app.use(pinia);
+
+// ===============================
+// 🔥 AHORA SÍ: cargar authStore DESPUÉS de instalar Pinia
+// ===============================
+const authStore = useAuthStore();
+await authStore.initAuth();
+
+
+// ===============================
+// AXIOS
+// ===============================
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 axios.defaults.headers.common['Accept'] = 'application/json';
 
-// Axios Interceptors
 axios.interceptors.request.use(
     (config) => {
-        // Aquí puedes agregar tokens de autenticación
         const token = localStorage.getItem('token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
 axios.interceptors.response.use(
-    (response) => {
-        return response;
-    },
+    (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            // Redirigir al login si no está autenticado
             localStorage.removeItem('token');
             router.push('/login');
         }
@@ -71,13 +88,10 @@ axios.interceptors.response.use(
     }
 );
 
-// Create Vue App
-const app = createApp(App);
-const pinia = createPinia();
 
-// Use Plugins
-app.use(pinia);
-app.use(router);
+// ===============================
+// PRIMEVUE
+// ===============================
 app.use(PrimeVue, {
     theme: {
         preset: Aura,
@@ -88,61 +102,19 @@ app.use(PrimeVue, {
         }
     },
     ripple: true,
-    locale: {
-        startsWith: 'Comienza con',
-        contains: 'Contiene',
-        notContains: 'No contiene',
-        endsWith: 'Termina con',
-        equals: 'Igual a',
-        notEquals: 'Diferente de',
-        noFilter: 'Sin filtro',
-        lt: 'Menor que',
-        lte: 'Menor o igual que',
-        gt: 'Mayor que',
-        gte: 'Mayor o igual que',
-        dateIs: 'Fecha es',
-        dateIsNot: 'Fecha no es',
-        dateBefore: 'Fecha antes de',
-        dateAfter: 'Fecha después de',
-        clear: 'Limpiar',
-        apply: 'Aplicar',
-        matchAll: 'Coincidir todo',
-        matchAny: 'Coincidir cualquiera',
-        addRule: 'Agregar regla',
-        removeRule: 'Eliminar regla',
-        accept: 'Sí',
-        reject: 'No',
-        choose: 'Elegir',
-        upload: 'Subir',
-        cancel: 'Cancelar',
-        dayNames: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
-        dayNamesShort: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
-        dayNamesMin: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'],
-        monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
-        monthNamesShort: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
-        today: 'Hoy',
-        weekHeader: 'Sem',
-        firstDayOfWeek: 0,
-        dateFormat: 'dd/mm/yy',
-        weak: 'Débil',
-        medium: 'Medio',
-        strong: 'Fuerte',
-        passwordPrompt: 'Ingrese una contraseña',
-        emptyFilterMessage: 'No se encontraron resultados',
-        emptyMessage: 'No hay opciones disponibles'
-    }
 });
+
 app.use(ToastService);
 app.use(ConfirmationService);
 
-// Global Properties
-app.config.globalProperties.$axios = axios;
 
-// Register Global Components
+// ===============================
+// COMPONENTES GLOBALES
+// ===============================
 app.component('Button', Button);
 app.component('InputText', InputText);
-app.component('InputGroup',InputGroup);
-app.component('InputGroupAddon',InputGroupAddon);
+app.component('InputGroup', InputGroup);
+app.component('InputGroupAddon', InputGroupAddon);
 app.component('InputNumber', InputNumber);
 app.component('DataTable', DataTable);
 app.component('Column', Column);
@@ -161,7 +133,13 @@ app.component('Checkbox', Checkbox);
 app.component('RadioButton', RadioButton);
 app.directive('tooltip', Tooltip);
 
-// Mount App
-app.mount('#app');
 
-//COMMIT DE RAMA SUPABASE
+// ===============================
+// ROUTER
+// ===============================
+app.use(router);
+
+// ===============================
+// MOUNT
+// ===============================
+app.mount('#app');
