@@ -31,11 +31,11 @@ const form = ref({
     proyecto: "",
     tipoVivienda: "",
     valorVivienda: 0,
-    viviendaSostenible: false,    // ✓ AGREGADO
-    bonoBbp: false,               // ✓ AGREGADO
+    viviendaSostenible: false,
+    bonoBbp: false,
     cuotaInicial: 0,
     cuotaInicialPorcentaje: 0,
-    tipoBbp: "",                  // ✓ CORREGIDO (era tipoBBP)
+    tipoBbp: "No aplica",
     ubicacion: ""
   }
 });
@@ -52,7 +52,7 @@ const errors = ref({
   viviendaCuotaInicial: "",
   viviendaSostenible: "",
   bonoBbp: "",
-  viviendaBBP: "",
+  viviendaTipoBbp: "",
   viviendaUbicacion: ""
 });
 
@@ -75,10 +75,9 @@ const proyectosData = [
     tipo_bbp: "No aplica",
     ubicacion: "Villa El Salvador"
   },
-  // ✅ AGREGA UN EJEMPLO CON CASA UNIFAMILIAR
   {
     proyecto: "Residencial Monte Verde",
-    tipo_vivienda: "Casa Unifamiliar",  // ✅ VALOR CORRECTO
+    tipo_vivienda: "Casa Unifamiliar",
     valor_vivienda: 180000,
     vivienda_sostenible: false,
     bono_bbp: true,
@@ -100,24 +99,74 @@ const estadosCiviles = [
 
 const tiposVivienda = [
   { label: "Departamento", value: "Departamento" },
-  { label: "Casa Unifamiliar", value: "Casa Unifamiliar" },  // ✅ CORREGIDO
+  { label: "Casa Unifamiliar", value: "Casa Unifamiliar" },
   { label: "Conjunto Residencial", value: "Conjunto Residencial" },
   { label: "Lote", value: "Lote" }
 ];
 
-// ✓ NUEVO: Opciones de Tipo BBP
 const tiposBBP = [
   { label: "BBP Tradicional", value: "BBP Tradicional" },
   { label: "BBP Integrador - Tradicional", value: "BBP Integrador - Tradicional" },
   { label: "BBP Vivienda Sostenible", value: "BBP Vivienda Sostenible" },
-  { label: "No aplica", value: "No aplica" },
-  { label: "BBP Integrador - Sostenible", value: "BBP Integrador - Sostenible" }
+  { label: "BBP Integrador - Sostenible", value: "BBP Integrador - Sostenible" },
+  { label: "No aplica", value: "No aplica" }
 ];
 
-const porcentajeBloqueado = ref(false);
+/* ===========================================================
+    COMPUTED: REQUISITOS BBP
+   =========================================================== */
+const cumpleRequisitosBBP = computed(() => {
+  const valor = Number(form.value.vivienda.valorVivienda) || 0;
+  const porcentaje = Number(form.value.vivienda.cuotaInicialPorcentaje) || 0;
+
+  const valorValido = valor >= 68800 && valor <= 488800;
+  const porcentajeValido = porcentaje >= 7.5;
+
+  return valorValido && porcentajeValido;
+});
 
 /* ===========================================================
-   RESETEAR FORMULARIO Y ERRORES
+   COMPUTED: TIPO BBP AUTOMÁTICO
+   =========================================================== */
+const tipoBBPAutomatico = computed(() => {
+  if (!cumpleRequisitosBBP.value || !form.value.vivienda.bonoBbp) {
+    return "No aplica";
+  }
+
+  const edad = Number(form.value.edad) || 0;
+  const esDiscapacitado = form.value.tieneDiscapacidad;
+  const esDesplazado = form.value.esPersonaDesplazada;
+  const esMigrante = form.value.esMigranteRetornado;
+  const viviendaSostenible = form.value.vivienda.viviendaSostenible;
+
+  const cumpleIntegrador = edad >= 60 || esDiscapacitado || esDesplazado || esMigrante;
+
+  if (cumpleIntegrador && viviendaSostenible) return "BBP Integrador - Sostenible";
+  if (cumpleIntegrador && !viviendaSostenible) return "BBP Integrador - Tradicional";
+  if (!cumpleIntegrador && !viviendaSostenible) return "BBP Tradicional";
+  if (!cumpleIntegrador && viviendaSostenible) return "BBP Vivienda Sostenible";
+
+  return "No aplica";
+});
+
+/* ===========================================================
+    COMPUTED: MENSAJE DE AYUDA BBP
+   =========================================================== */
+const mensajeBBP = computed(() => {
+  const valor = Number(form.value.vivienda.valorVivienda) || 0;
+  const porcentaje = Number(form.value.vivienda.cuotaInicialPorcentaje) || 0;
+
+  if (valor < 68800) return " Valor de vivienda debe ser mínimo S/ 68,800";
+  if (valor > 488800) return " Valor de vivienda debe ser máximo S/ 488,800 para BBP";
+  if (porcentaje < 7.5) return " Cuota inicial debe ser mínimo 7.5%";
+
+  if (cumpleRequisitosBBP.value) return " Cumple requisitos para Bono BBP";
+
+  return "Ingrese valor de vivienda y cuota inicial";
+});
+
+/* ===========================================================
+   RESET
    =========================================================== */
 function resetForm() {
   form.value = {
@@ -133,11 +182,11 @@ function resetForm() {
       proyecto: "",
       tipoVivienda: "",
       valorVivienda: 0,
-      viviendaSostenible: false,   // ✓ AGREGADO
-      bonoBbp: false,              // ✓ AGREGADO
+      viviendaSostenible: false,
+      bonoBbp: false,
       cuotaInicial: 0,
       cuotaInicialPorcentaje: 0,
-      tipoBbp: "",                 // ✓ CORREGIDO
+      tipoBbp: "No aplica",
       ubicacion: ""
     }
   };
@@ -156,21 +205,17 @@ function resetErrors() {
     viviendaCuotaInicial: "",
     viviendaSostenible: "",
     bonoBbp: "",
-    viviendaBBP: "",
+    viviendaTipoBbp: "",
     viviendaUbicacion: ""
   };
 }
 
 /* ===========================================================
-   CARGAR DATOS CUANDO ES EDICIÓN
+    CARGAR CLIENTE EN EDICIÓN
    =========================================================== */
 watch(
     () => props.cliente,
     (c) => {
-      console.log('🔍 CLIENTE RECIBIDO:', c); // ✅ AGREGAR ESTO
-      console.log('🏠 VIVIENDA:', c?.vivienda); // ✅ AGREGAR ESTO
-      console.log('📋 TIPO BBP:', c?.vivienda?.tipoBbp); // ✅ AGREGAR ESTO
-
       if (c && props.isEdit) {
         form.value = {
           nombresApellidos: c.nombresApellidos ?? "",
@@ -189,13 +234,10 @@ watch(
             bonoBbp: !!c.vivienda?.bonoBbp,
             cuotaInicial: c.vivienda?.cuotaInicial ?? 0,
             cuotaInicialPorcentaje: c.vivienda?.cuotaInicialPorcentaje ?? 0,
-            tipoBbp: c.vivienda?.tipoBbp ?? "",
+            tipoBbp: c.vivienda?.tipoBbp ?? "No aplica",
             ubicacion: c.vivienda?.ubicacion ?? ""
           }
         };
-
-        console.log('✅ FORM CARGADO:', form.value); // ✅ AGREGAR ESTO
-        console.log('📋 TIPO BBP EN FORM:', form.value.vivienda.tipoBbp); // ✅ AGREGAR ESTO
       } else {
         resetForm();
       }
@@ -205,69 +247,63 @@ watch(
 );
 
 /* ===========================================================
-   VALIDACIÓN DEL FORMULARIO
+   VALIDACIÓN
    =========================================================== */
 function validateForm() {
   let valid = true;
   resetErrors();
 
-  // Validación: Nombres y Apellidos
   if (!form.value.nombresApellidos.trim()) {
     errors.value.nombresApellidos = "El nombre es requerido";
     valid = false;
   }
-
-  // Validación: DNI
   if (!form.value.dni || form.value.dni.length !== 8) {
-    errors.value.dni = "DNI inválido (8 dígitos)";
+    errors.value.dni = "DNI inválido";
     valid = false;
   }
-
-  // Validación: Edad
   if (!form.value.edad || form.value.edad < 18) {
-    errors.value.edad = "Edad inválida (mayor o igual a 18)";
+    errors.value.edad = "Edad inválida";
     valid = false;
   }
-
-  // Validación: Estado Civil
-  if (!form.value.estadoCivil) {
-    errors.value.estadoCivil = "El estado civil es requerido";
-    valid = false;
-  }
-
-  // Validación: Ingreso Familiar básico
   if (!form.value.ingresoFamiliar || form.value.ingresoFamiliar <= 0) {
-    errors.value.ingresoFamiliar = "El ingreso familiar debe ser mayor a 0";
+    errors.value.ingresoFamiliar = "Ingresos inválidos";
     valid = false;
   }
-
-  // ========================================================
-  //  VALIDACIONES DE VIVIENDA
-  // ========================================================
 
   if (!form.value.vivienda.proyecto.trim()) {
     errors.value.viviendaProyecto = "El proyecto es requerido";
     valid = false;
   }
-
   if (!form.value.vivienda.tipoVivienda.trim()) {
-    errors.value.viviendaTipo = "El tipo de vivienda es requerido";
+    errors.value.viviendaTipo = "El tipo es requerido";
     valid = false;
   }
-
   if (!form.value.vivienda.valorVivienda || form.value.vivienda.valorVivienda <= 0) {
-    errors.value.viviendaValor = "El valor de la vivienda debe ser mayor a 0";
+    errors.value.viviendaValor = "El valor debe ser mayor a 0";
     valid = false;
   }
-
   if (!form.value.vivienda.ubicacion.trim()) {
     errors.value.viviendaUbicacion = "La ubicación es requerida";
     valid = false;
   }
 
-  // Validación: Tipo de BBP
-  if (!form.value.vivienda.tipoBbp) {
-    errors.value.viviendaBBP = "El tipo de BBP es requerido";
+  if (form.value.vivienda.bonoBbp && !cumpleRequisitosBBP.value) {
+    errors.value.bonoBbp = "No cumple requisitos para BBP";
+    valid = false;
+  }
+
+  if (form.value.vivienda.cuotaInicialPorcentaje < 7.5) {
+    errors.value.viviendaCuotaInicial = "La cuota inicial mínima es 7.5%";
+    valid = false;
+  }
+
+  if (form.value.vivienda.valorVivienda > 488800) {
+    errors.value.viviendaValor = "El valor de vivienda no puede exceder S/ 488,800";
+    valid = false;
+  }
+
+  if (form.value.vivienda.cuotaInicial <= 0) {
+    errors.value.viviendaCuotaInicial = "La cuota inicial debe ser mayor a cero";
     valid = false;
   }
 
@@ -275,23 +311,14 @@ function validateForm() {
 }
 
 /* ===========================================================
-   DNI SOLO NÚMEROS Y 8 DÍGITOS
-   =========================================================== */
-function handleDniInput(e) {
-  form.value.dni = e.target.value.replace(/[^0-9]/g, "").substring(0, 8);
-}
-
-/* ===========================================================
-   CUOTA INICIAL: SINCRONIZAR PORCENTAJE ↔ MONTO
+    CÁLCULOS DE CUOTAS
    =========================================================== */
 function recalcularCuotaDesdePorcentaje() {
   const valor = Number(form.value.vivienda.valorVivienda) || 0;
-  let porcentaje = Number(form.value.vivienda.cuotaInicialPorcentaje) || 0;
+  const porcentaje = Number(form.value.vivienda.cuotaInicialPorcentaje) || 0;
 
   if (valor > 0 && porcentaje >= 0) {
-    form.value.vivienda.cuotaInicial = Number(
-        (valor * (porcentaje / 100)).toFixed(2)
-    );
+    form.value.vivienda.cuotaInicial = Number(((valor * porcentaje) / 100).toFixed(2));
   } else {
     form.value.vivienda.cuotaInicial = 0;
   }
@@ -302,52 +329,127 @@ function recalcularPorcentajeDesdeCuota() {
   const cuota = Number(form.value.vivienda.cuotaInicial) || 0;
 
   if (valor > 0 && cuota >= 0) {
-    form.value.vivienda.cuotaInicialPorcentaje = Number(
-        ((cuota * 100) / valor).toFixed(2)
-    );
+    form.value.vivienda.cuotaInicialPorcentaje = Number(((cuota * 100) / valor).toFixed(2));
   } else {
     form.value.vivienda.cuotaInicialPorcentaje = 0;
   }
 }
 
-
 /* ===========================================================
-   WATCHERS
+   WATCH: Proyecto autocompleta vivienda
    =========================================================== */
-
-// Cuando el usuario escriba un proyecto:
 watch(
     () => form.value.vivienda.proyecto,
     (nombre) => {
       if (!nombre) return;
-
       const v = proyectosData.find((x) => x.proyecto === nombre);
       if (!v) return;
 
-      // Sincroniza automáticamente el resto de campos
       form.value.vivienda.tipoVivienda = v.tipo_vivienda;
-      form.value.vivienda.viviendaSostenible = !!v.vivienda_sostenible;  // ✓ CORREGIDO
-      form.value.vivienda.bonoBbp = !!v.bono_bbp;                        // ✓ CORREGIDO
+      form.value.vivienda.viviendaSostenible = !!v.vivienda_sostenible;
       form.value.vivienda.valorVivienda = Number(v.valor_vivienda);
-      form.value.vivienda.tipoBbp = v.tipo_bbp || "";                    // ✓ CORREGIDO
       form.value.vivienda.ubicacion = v.ubicacion;
 
-      // Recalcular cuota inicial
       recalcularCuotaDesdePorcentaje();
     }
 );
-
-/* Si cambia el valor de la vivienda, recalculamos cuota */
-watch(
-    () => form.value.vivienda.valorVivienda,
-    () => {
-      recalcularCuotaDesdePorcentaje();
-    }
-);
-
 
 /* ===========================================================
-   GUARDAR / CERRAR
+   WATCHERS: AUTO-CÁLCULO DE CUOTAS
+   =========================================================== */
+watch(
+    () => form.value.vivienda.valorVivienda,
+    (nuevoValor, viejoValor) => {
+      if (nuevoValor !== viejoValor) {
+        recalcularCuotaDesdePorcentaje();
+      }
+    }
+);
+
+watch(
+    () => form.value.vivienda.cuotaInicialPorcentaje,
+    (nuevo, viejo) => {
+      if (nuevo !== viejo) recalcularCuotaDesdePorcentaje();
+    }
+);
+
+watch(
+    () => form.value.vivienda.cuotaInicial,
+    (nuevo, viejo) => {
+      if (nuevo !== viejo) recalcularPorcentajeDesdeCuota();
+    }
+);
+
+/* ===========================================================
+   WATCHERS BBP
+   =========================================================== */
+watch(
+    [
+      () => form.value.vivienda.valorVivienda,
+      () => form.value.vivienda.cuotaInicialPorcentaje
+    ],
+    () => {
+      if (!cumpleRequisitosBBP.value) {
+        form.value.vivienda.bonoBbp = false;
+        form.value.vivienda.tipoBbp = "No aplica";
+      }
+    }
+);
+
+watch(
+    () => form.value.vivienda.bonoBbp,
+    (nuevo) => {
+      if (!nuevo) {
+        form.value.vivienda.tipoBbp = "No aplica";
+      } else if (cumpleRequisitosBBP.value) {
+        form.value.vivienda.tipoBbp = tipoBBPAutomatico.value;
+      } else {
+        form.value.vivienda.bonoBbp = false;
+        form.value.vivienda.tipoBbp = "No aplica";
+      }
+    }
+);
+
+watch(
+    [
+      () => form.value.edad,
+      () => form.value.tieneDiscapacidad,
+      () => form.value.esPersonaDesplazada,
+      () => form.value.esMigranteRetornado,
+      () => form.value.vivienda.viviendaSostenible
+    ],
+    () => {
+      if (form.value.vivienda.bonoBbp && cumpleRequisitosBBP.value) {
+        form.value.vivienda.tipoBbp = tipoBBPAutomatico.value;
+      }
+    }
+);
+
+/* ===========================================================
+   NUEVO WATCHER OFICIAL (REGALADO PARA TI)
+   =========================================================== */
+watch(
+    () => form.value.vivienda.valorVivienda,
+    (valor) => {
+      valor = Number(valor) || 0;
+
+      // 🟥 Viviendas con valor > 362,100 NO pueden aplicar BBP
+      if (valor > 362100) {
+        form.value.vivienda.bonoBbp = false;
+        form.value.vivienda.tipoBbp = "No aplica";
+        return;
+      }
+
+      // 🟩 Si vuelve a un valor dentro del rango y cumple requisitos
+      if (valor <= 362100 && cumpleRequisitosBBP.value) {
+        form.value.vivienda.bonoBbp = true;
+        form.value.vivienda.tipoBbp = tipoBBPAutomatico.value;
+      }
+    }
+);
+
+/* ===========================================================
+   GUARDAR
    =========================================================== */
 function handleSubmit() {
   if (!validateForm()) return;
@@ -369,22 +471,25 @@ function handleClose() {
     resetErrors();
   }, 300);
 }
+
+function handleDniInput(event) {
+  form.value.dni = event.target.value.replace(/\D/g, "").slice(0, 8);
+}
 </script>
 
 <template>
   <Dialog
       :visible="visible"
-      :style="{ width: '900px', maxHeight: '90vh' }"
       :header="isEdit ? 'Editar Cliente' : 'Nuevo Cliente'"
       modal
-      class="cliente-dialog"
+      :style="{ width: '900px', maxHeight: '90vh' }"
       :contentStyle="{ overflow: 'auto' }"
       @update:visible="handleClose"
+      class="cliente-dialog"
   >
     <div class="form-container p-fluid">
-      <!-- ============================ -->
-      <!--   DATOS DEL CLIENTE          -->
-      <!-- ============================ -->
+
+      <!-- DATOS DEL CLIENTE -->
       <div class="section-header mb-4">
         <div class="section-title-wrapper">
           <i class="pi pi-user section-icon"></i>
@@ -393,20 +498,12 @@ function handleClose() {
       </div>
 
       <div class="grid">
-        <!-- Nombres -->
         <div class="col-12 md:col-6">
           <label class="form-label">Nombres y Apellidos</label>
-          <InputText
-              v-model="form.nombresApellidos"
-              :class="{ 'p-invalid': errors.nombresApellidos }"
-              placeholder="Ingresar nombre completo"
-          />
-          <small v-if="errors.nombresApellidos" class="p-error">
-            {{ errors.nombresApellidos }}
-          </small>
+          <InputText v-model="form.nombresApellidos" :class="{ 'p-invalid': errors.nombresApellidos }" />
+          <small v-if="errors.nombresApellidos" class="p-error">{{ errors.nombresApellidos }}</small>
         </div>
 
-        <!-- Estado civil -->
         <div class="col-12 md:col-6">
           <label class="form-label">Estado Civil</label>
           <Dropdown
@@ -415,15 +512,11 @@ function handleClose() {
               optionLabel="label"
               optionValue="value"
               class="w-full"
-              appendTo="body"
               :class="{ 'p-invalid': errors.estadoCivil }"
           />
-          <small v-if="errors.estadoCivil" class="p-error">
-            {{ errors.estadoCivil }}
-          </small>
+          <small v-if="errors.estadoCivil" class="p-error">{{ errors.estadoCivil }}</small>
         </div>
 
-        <!-- DNI -->
         <div class="col-12 md:col-6">
           <label class="form-label">DNI</label>
           <InputText
@@ -431,14 +524,10 @@ function handleClose() {
               maxlength="8"
               @input="handleDniInput"
               :class="{ 'p-invalid': errors.dni }"
-              placeholder="8 dígitos"
           />
-          <small v-if="errors.dni" class="p-error">
-            {{ errors.dni }}
-          </small>
+          <small v-if="errors.dni" class="p-error">{{ errors.dni }}</small>
         </div>
 
-        <!-- Ingreso Familiar -->
         <div class="col-12 md:col-6">
           <label class="form-label">Ingreso Familiar (S/.)</label>
           <InputNumber
@@ -449,102 +538,51 @@ function handleClose() {
               :minFractionDigits="2"
               class="w-full"
               :class="{ 'p-invalid': errors.ingresoFamiliar }"
-              placeholder="0.00"
           />
-          <small v-if="errors.ingresoFamiliar" class="p-error">
-            {{ errors.ingresoFamiliar }}
-          </small>
+          <small v-if="errors.ingresoFamiliar" class="p-error">{{ errors.ingresoFamiliar }}</small>
         </div>
 
-        <!-- Edad -->
         <div class="col-12 md:col-3">
           <label class="form-label">Edad</label>
-          <InputText
-              v-model="form.edad"
-              type="number"
-              placeholder="Ej: 18"
-              :class="{ 'p-invalid': errors.edad }"
-          />
-          <small v-if="errors.edad" class="p-error">
-            {{ errors.edad }}
-          </small>
+          <InputText v-model="form.edad" type="number" :class="{ 'p-invalid': errors.edad }" />
+          <small v-if="errors.edad" class="p-error">{{ errors.edad }}</small>
         </div>
 
-        <!-- Radios: Discapacidad -->
+        <!-- Radios -->
         <div class="col-12 md:col-3">
           <label class="form-label">¿Tiene discapacidad?</label>
           <div class="radio-group">
-            <div class="radio-option">
-              <RadioButton
-                  v-model="form.tieneDiscapacidad"
-                  :value="true"
-                  class="radio-custom"
-              />
-              <label class="radio-label">Sí</label>
-            </div>
-            <div class="radio-option">
-              <RadioButton
-                  v-model="form.tieneDiscapacidad"
-                  :value="false"
-                  class="radio-custom"
-              />
-              <label class="radio-label">No</label>
-            </div>
+            <RadioButton v-model="form.tieneDiscapacidad" :value="true" />
+            <label class="radio-label">Sí</label>
+            <RadioButton v-model="form.tieneDiscapacidad" :value="false" />
+            <label class="radio-label">No</label>
           </div>
         </div>
 
-        <!-- Radios: Migrante -->
         <div class="col-12 md:col-3">
           <label class="form-label">¿Migrante retornado?</label>
           <div class="radio-group">
-            <div class="radio-option">
-              <RadioButton
-                  v-model="form.esMigranteRetornado"
-                  :value="true"
-                  class="radio-custom"
-              />
-              <label class="radio-label">Sí</label>
-            </div>
-            <div class="radio-option">
-              <RadioButton
-                  v-model="form.esMigranteRetornado"
-                  :value="false"
-                  class="radio-custom"
-              />
-              <label class="radio-label">No</label>
-            </div>
+            <RadioButton v-model="form.esMigranteRetornado" :value="true" />
+            <label class="radio-label">Sí</label>
+            <RadioButton v-model="form.esMigranteRetornado" :value="false" />
+            <label class="radio-label">No</label>
           </div>
         </div>
 
-        <!-- Radios: Desplazada -->
         <div class="col-12 md:col-3">
           <label class="form-label">¿Persona desplazada?</label>
           <div class="radio-group">
-            <div class="radio-option">
-              <RadioButton
-                  v-model="form.esPersonaDesplazada"
-                  :value="true"
-                  class="radio-custom"
-              />
-              <label class="radio-label">Sí</label>
-            </div>
-            <div class="radio-option">
-              <RadioButton
-                  v-model="form.esPersonaDesplazada"
-                  :value="false"
-                  class="radio-custom"
-              />
-              <label class="radio-label">No</label>
-            </div>
+            <RadioButton v-model="form.esPersonaDesplazada" :value="true" />
+            <label class="radio-label">Sí</label>
+            <RadioButton v-model="form.esPersonaDesplazada" :value="false" />
+            <label class="radio-label">No</label>
           </div>
         </div>
       </div>
 
       <Divider class="my-4" />
 
-      <!-- ============================ -->
-      <!--    DATOS DE LA VIVIENDA     -->
-      <!-- ============================ -->
+      <!-- DATOS DE LA VIVIENDA -->
       <div class="section-header mb-4">
         <div class="section-title-wrapper">
           <i class="pi pi-home section-icon"></i>
@@ -553,20 +591,12 @@ function handleClose() {
       </div>
 
       <div class="grid">
-        <!-- Proyecto -->
         <div class="col-12 md:col-6">
-          <label class="form-label">Proyecto / Nombre de la Vivienda</label>
-          <InputText
-              v-model="form.vivienda.proyecto"
-              :class="{ 'p-invalid': errors.viviendaProyecto }"
-              placeholder="Ej: Residencial Mirador Azul"
-          />
-          <small v-if="errors.viviendaProyecto" class="p-error">
-            {{ errors.viviendaProyecto }}
-          </small>
+          <label class="form-label">Proyecto</label>
+          <InputText v-model="form.vivienda.proyecto" :class="{ 'p-invalid': errors.viviendaProyecto }" />
+          <small v-if="errors.viviendaProyecto" class="p-error">{{ errors.viviendaProyecto }}</small>
         </div>
 
-        <!-- Tipo vivienda -->
         <div class="col-12 md:col-6">
           <label class="form-label">Tipo de Vivienda</label>
           <Dropdown
@@ -574,19 +604,14 @@ function handleClose() {
               :options="tiposVivienda"
               optionLabel="label"
               optionValue="value"
-              placeholder="Seleccionar tipo de vivienda..."
               class="w-full"
-              appendTo="body"
               :class="{ 'p-invalid': errors.viviendaTipo }"
           />
-          <small v-if="errors.viviendaTipo" class="p-error">
-            {{ errors.viviendaTipo }}
-          </small>
+          <small v-if="errors.viviendaTipo" class="p-error">{{ errors.viviendaTipo }}</small>
         </div>
 
-        <!-- Valor vivienda -->
         <div class="col-12 md:col-6">
-          <label class="form-label">Valor de la Vivienda (S/.)</label>
+          <label class="form-label">Valor de la Vivienda</label>
           <InputNumber
               v-model="form.vivienda.valorVivienda"
               mode="currency"
@@ -595,50 +620,33 @@ function handleClose() {
               :minFractionDigits="2"
               class="w-full"
               :class="{ 'p-invalid': errors.viviendaValor }"
-              placeholder="0.00"
           />
-          <small v-if="errors.viviendaValor" class="p-error">
-            {{ errors.viviendaValor }}
-          </small>
+          <small v-if="errors.viviendaValor" class="p-error">{{ errors.viviendaValor }}</small>
         </div>
 
-        <!-- ✓ NUEVO: ¿Vivienda Sostenible? -->
+        <!-- ✓ Vivienda sostenible -->
         <div class="col-12 md:col-6">
           <label class="form-label">¿Vivienda Sostenible?</label>
           <div class="radio-group">
-            <div class="radio-option">
-              <RadioButton
-                  v-model="form.vivienda.viviendaSostenible"
-                  :value="true"
-                  class="radio-custom"
-              />
-              <label class="radio-label">Sí</label>
-            </div>
-            <div class="radio-option">
-              <RadioButton
-                  v-model="form.vivienda.viviendaSostenible"
-                  :value="false"
-                  class="radio-custom"
-              />
-              <label class="radio-label">No</label>
-            </div>
+            <RadioButton v-model="form.vivienda.viviendaSostenible" :value="true" />
+            <label class="radio-label">Sí</label>
+            <RadioButton v-model="form.vivienda.viviendaSostenible" :value="false" />
+            <label class="radio-label">No</label>
           </div>
         </div>
 
-        <!-- Cuota inicial -->
+        <!-- Cuotas -->
         <div class="col-12 md:col-6">
-          <label class="form-label">Cuota inicial (S/.)</label>
+          <label class="form-label">Cuota Inicial (%) y Monto</label>
           <div class="cuota-input-group">
-            <!-- Porcentaje -->
             <InputNumber
                 v-model="form.vivienda.cuotaInicialPorcentaje"
                 suffix="%"
                 :minFractionDigits="2"
                 :maxFractionDigits="2"
                 class="cuota-percentage"
-                :disabled="porcentajeBloqueado"
-                @input="recalcularCuotaDesdePorcentaje"
             />
+
             <InputNumber
                 v-model="form.vivienda.cuotaInicial"
                 mode="currency"
@@ -646,36 +654,33 @@ function handleClose() {
                 locale="es-PE"
                 :minFractionDigits="2"
                 class="cuota-amount"
-                @input="recalcularPorcentajeDesdeCuota"
                 :class="{ 'p-invalid': errors.viviendaCuotaInicial }"
             />
           </div>
-          <small v-if="errors.viviendaCuotaInicial" class="p-error">
-            {{ errors.viviendaCuotaInicial }}
-          </small>
+          <small v-if="errors.viviendaCuotaInicial" class="p-error">{{ errors.viviendaCuotaInicial }}</small>
         </div>
 
-        <!-- ✓ NUEVO: ¿Bono del Buen Pagador (BBP)? -->
+        <!-- ✅ NUEVO: Mensaje de requisitos BBP -->
         <div class="col-12 md:col-6">
-          <label class="form-label">¿Bono del Buen Pagador (BBP)?</label>
-          <div class="radio-group">
-            <div class="radio-option">
-              <RadioButton
-                  v-model="form.vivienda.bonoBbp"
-                  :value="true"
-                  class="radio-custom"
-              />
-              <label class="radio-label">Sí</label>
-            </div>
-            <div class="radio-option">
-              <RadioButton
-                  v-model="form.vivienda.bonoBbp"
-                  :value="false"
-                  class="radio-custom"
-              />
-              <label class="radio-label">No</label>
-            </div>
+          <div class="bbp-status-card" :class="cumpleRequisitosBBP ? 'bbp-valid' : 'bbp-invalid'">
+            <small class="bbp-message">{{ mensajeBBP }}</small>
           </div>
+        </div>
+
+        <!-- BBP -->
+        <div class="col-12 md:col-6">
+          <label class="form-label">¿Bono BBP?</label>
+          <div class="radio-group">
+            <RadioButton
+                v-model="form.vivienda.bonoBbp"
+                :value="true"
+                :disabled="!cumpleRequisitosBBP"
+            />
+            <label class="radio-label" :class="{ 'radio-disabled': !cumpleRequisitosBBP }">Sí</label>
+            <RadioButton v-model="form.vivienda.bonoBbp" :value="false" />
+            <label class="radio-label">No</label>
+          </div>
+          <small v-if="errors.bonoBbp" class="p-error">{{ errors.bonoBbp }}</small>
         </div>
 
         <!-- Ubicación -->
@@ -684,54 +689,34 @@ function handleClose() {
           <InputText
               v-model="form.vivienda.ubicacion"
               :class="{ 'p-invalid': errors.viviendaUbicacion }"
-              placeholder="Ej: Ate, Lima"
           />
-          <small v-if="errors.viviendaUbicacion" class="p-error">
-            {{ errors.viviendaUbicacion }}
-          </small>
+          <small v-if="errors.viviendaUbicacion" class="p-error">{{ errors.viviendaUbicacion }}</small>
         </div>
 
-        <!-- ✓ NUEVO: Tipo de BBP -->
+        <!-- Tipo BBP (Automático) -->
         <div class="col-12 md:col-6">
-          <label class="form-label">Tipo de BBP</label>
-          <Dropdown
+          <label class="form-label">Tipo de BBP (Automático)</label>
+          <InputText
               v-model="form.vivienda.tipoBbp"
-              :options="tiposBBP"
-              optionLabel="label"
-              optionValue="value"
-              placeholder="Seleccionar tipo de BBP..."
-              appendTo="body"
-              class="w-full"
-              :class="{ 'p-invalid': errors.viviendaBBP }"
+              :disabled="true"
+              class="tipo-bbp-readonly"
           />
-          <small v-if="errors.viviendaBBP" class="p-error">
-            {{ errors.viviendaBBP }}
-          </small>
+          <small class="p-help">Este campo se calcula automáticamente según los requisitos</small>
         </div>
+
       </div>
     </div>
 
     <!-- FOOTER -->
     <template #footer>
-      <div class="flex justify-content-between gap-2">
-        <Button
-            label="Cancelar"
-            icon="pi pi-times"
-            class="p-button-secondary"
-            @click="handleClose"
-            :disabled="loading"
-        />
-        <Button
-            :label="isEdit ? 'Actualizar' : 'Guardar'"
-            icon="pi pi-check"
-            class="p-button-success"
-            @click="handleSubmit"
-            :loading="loading"
-        />
-      </div>
+      <Button label="Cancelar" class="p-button-secondary" @click="handleClose" />
+      <Button :label="isEdit ? 'Actualizar' : 'Guardar'" class="p-button-success" @click="handleSubmit" :loading="loading" />
     </template>
   </Dialog>
 </template>
+
+<!-- Styles omitidos por brevedad, se mantienen iguales -->
+
 
 <style scoped>
 .form-container {
