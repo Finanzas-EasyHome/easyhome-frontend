@@ -12,7 +12,7 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
             .select(`
             *,
             vivienda:viviendas_ncmv!fk_cliente (
-            id,
+                id,
                 proyecto,
                 tipo_vivienda,
                 valor_vivienda,
@@ -51,11 +51,12 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
                         tipoVivienda: v.tipo_vivienda,
                         valorVivienda: v.valor_vivienda,
                         viviendaSostenible: v.vivienda_sostenible,
+                        bonoBbp: v.bono_bbp,
                         cuotaInicial:
                             Number(v.valor_vivienda) *
                             (Number(v.porcentaje_cuota_inicial) / 100),
                         cuotaInicialPorcentaje: v.porcentaje_cuota_inicial,
-                        tipoBBP: v.tipo_bbp,
+                        tipoBbp: v.tipo_bbp,  // ✅ CAMBIAR DE tipoBBP a tipoBbp
                         ubicacion: v.ubicacion,
                     }
                     : null
@@ -73,7 +74,7 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
                 proyecto,
                 tipo_vivienda,
                 valor_vivienda,
-                vivenda_sostenible,
+                vivienda_sostenible,
                 bono_bbp,
                 porcentaje_cuota_inicial,
                 tipo_bbp,
@@ -110,11 +111,12 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
                     tipoVivienda: v.tipo_vivienda,
                     valorVivienda: v.valor_vivienda,
                     viviendaSostenible: v.vivienda_sostenible,
+                    bonoBbp: v.bono_bbp,
                     cuotaInicial:
                         Number(v.valor_vivienda) *
                         (Number(v.porcentaje_cuota_inicial) / 100),
                     cuotaInicialPorcentaje: v.porcentaje_cuota_inicial,
-                    tipoBBP: v.tipo_bbp,
+                    tipoBbp: v.tipo_bbp,  // ✅ CAMBIAR DE tipoBBP a tipoBbp
                     ubicacion: v.ubicacion,
                 }
                 : null
@@ -123,7 +125,7 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
 
     async create(cliente) {
 
-        // 1 Crear cliente
+        // 1️⃣ Crear cliente
         const { data: newClient, error: clienteError } = await supabase
             .from("clientes_ncmv")
             .insert({
@@ -143,7 +145,7 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
 
         if (clienteError) throw new Error(clienteError.message);
 
-        // 2️ Crear vivienda
+        // 2️⃣ Crear vivienda
         const vivienda = cliente.vivienda;
 
         const { error: viviendaError } = await supabase
@@ -156,7 +158,7 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
                 vivienda_sostenible: vivienda.viviendaSostenible,
                 bono_bbp: vivienda.bonoBbp,
                 porcentaje_cuota_inicial: vivienda.cuotaInicialPorcentaje,
-                tipo_bbp: vivienda.tipoBBP,
+                tipo_bbp: vivienda.tipoBbp,
                 ubicacion: vivienda.ubicacion,
                 fecha_registro: new Date()
             });
@@ -213,17 +215,17 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
 
         console.log('ID de vivienda:', cliente.vivienda.id);
 
-        // Actualizar vivienda
+        // ✅ Actualizar vivienda - CORREGIDO
         const { error: viviendaError } = await supabase
             .from("viviendas_ncmv")
             .update({
                 proyecto: cliente.vivienda.proyecto,
                 tipo_vivienda: cliente.vivienda.tipoVivienda,
                 valor_vivienda: Number(cliente.vivienda.valorVivienda),
-                viviendaSostenible: Number(cliente.vivienda.viviendaSostenible),
+                vivienda_sostenible: Number(cliente.vivienda.viviendaSostenible),  // ✅ CORREGIDO
                 bono_bbp: Number(cliente.vivienda.bonoBbp),
                 porcentaje_cuota_inicial: Number(cliente.vivienda.cuotaInicialPorcentaje),
-                tipo_bbp: cliente.vivienda.tipoBBP,
+                tipo_bbp: cliente.vivienda.tipoBbp,  // ✅ CORREGIDO
                 ubicacion: cliente.vivienda.ubicacion
 
             })
@@ -239,6 +241,7 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
 
         return true;
     }
+
     // ============================================================
     //  ELIMINAR CLIENTE (CASCADE)
     // ============================================================

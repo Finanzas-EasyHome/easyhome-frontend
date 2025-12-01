@@ -7,7 +7,7 @@ import { ref, watch, computed } from 'vue';
    =========================================================== */
 const props = defineProps({
   visible: { type: Boolean, required: true },
-  cliente: { type: Object, default: null }, // viene del padre al editar
+  cliente: { type: Object, default: null },
   isEdit: { type: Boolean, default: false }
 });
 
@@ -31,11 +31,11 @@ const form = ref({
     proyecto: "",
     tipoVivienda: "",
     valorVivienda: 0,
-    viviendaSostenible: 0,
-    bonoBbp: 0,
+    viviendaSostenible: false,    // ✓ AGREGADO
+    bonoBbp: false,               // ✓ AGREGADO
     cuotaInicial: 0,
     cuotaInicialPorcentaje: 0,
-    tipoBBP: "",
+    tipoBbp: "",                  // ✓ CORREGIDO (era tipoBBP)
     ubicacion: ""
   }
 });
@@ -50,9 +50,9 @@ const errors = ref({
   viviendaTipo: "",
   viviendaValor: "",
   viviendaCuotaInicial: "",
-  viviendaSostenible:"",
-  bonoBbp:"",
-  tipoBbp:"",
+  viviendaSostenible: "",
+  bonoBbp: "",
+  viviendaBBP: "",
   viviendaUbicacion: ""
 });
 
@@ -60,18 +60,30 @@ const proyectosData = [
   {
     proyecto: "Proyecto Los capibaras",
     tipo_vivienda: "Departamento",
-    modalidad_vivienda: "Adquisición de Vivienda",
     valor_vivienda: 111000,
-    tipo_vis: "VIS en Lote Unifamiliar",
+    vivienda_sostenible: true,
+    bono_bbp: true,
+    tipo_bbp: "BBP Tradicional",
     ubicacion: "Chorrillos Lima"
   },
   {
     proyecto: "Residencial Mirador Azul",
     tipo_vivienda: "Departamento",
-    modalidad_vivienda: "Construcción en Sitio Propio",
     valor_vivienda: 95000,
-    tipo_vis: "Ninguna",
+    vivienda_sostenible: false,
+    bono_bbp: false,
+    tipo_bbp: "No aplica",
     ubicacion: "Villa El Salvador"
+  },
+  // ✅ AGREGA UN EJEMPLO CON CASA UNIFAMILIAR
+  {
+    proyecto: "Residencial Monte Verde",
+    tipo_vivienda: "Casa Unifamiliar",  // ✅ VALOR CORRECTO
+    valor_vivienda: 180000,
+    vivienda_sostenible: false,
+    bono_bbp: true,
+    tipo_bbp: "BBP Tradicional",
+    ubicacion: "Carabayllo, Lima"
   }
 ];
 
@@ -88,71 +100,24 @@ const estadosCiviles = [
 
 const tiposVivienda = [
   { label: "Departamento", value: "Departamento" },
+  { label: "Casa Unifamiliar", value: "Casa Unifamiliar" },  // ✅ CORREGIDO
   { label: "Conjunto Residencial", value: "Conjunto Residencial" },
-  { label: "Vivienda Unifamiliar", value: "Vivienda Unifamiliar" },
   { label: "Lote", value: "Lote" }
 ];
 
-const tiposVIS = [
-  {
-    label: "VIS Priorizada en Lote Unifamiliar",
-    value: "VIS Priorizada en Lote Unifamiliar"
-  },
-  {
-    label: "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta",
-    value: "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta"
-  },
-  {
-    label: "VIS en Edificio Multifamiliar / Conjunto Residencial / Quinta",
-    value: "VIS en Edificio Multifamiliar / Conjunto Residencial / Quinta"
-  },
-  { label: "Ninguna", value: "Ninguna" },
-  {
-    label: "VIS en Lote Unifamiliar",
-    value: "VIS en Lote Unifamiliar"
-  }
+// ✓ NUEVO: Opciones de Tipo BBP
+const tiposBBP = [
+  { label: "BBP Tradicional", value: "BBP Tradicional" },
+  { label: "BBP Integrador - Tradicional", value: "BBP Integrador - Tradicional" },
+  { label: "BBP Vivienda Sostenible", value: "BBP Vivienda Sostenible" },
+  { label: "No aplica", value: "No aplica" },
+  { label: "BBP Integrador - Sostenible", value: "BBP Integrador - Sostenible" }
 ];
-
-/* Reglas para cada tipo de VIS - CORREGIDAS */
-const visConfig = {
-  "VIS Priorizada en Lote Unifamiliar": {
-    mode: "range",
-    min: 1,
-    max: 3,
-    editable: true,
-    descripcion: "Ahorro entre 1% y 3%"
-  },
-  "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta": {
-    mode: "range",
-    min: 1,
-    max: 3,
-    editable: true,
-    descripcion: "Ahorro entre 1% y 3%"
-  },
-  "VIS en Edificio Multifamiliar / Conjunto Residencial / Quinta": {
-    mode: "minimum",
-    min: 3,
-    editable: true,
-    descripcion: "Mínimo 3%"
-  },
-  "Ninguna": {
-    mode: "minimum",
-    min: 0,
-    editable: true,
-    descripcion: "Desde 0% en adelante"
-  },
-  "VIS en Lote Unifamiliar": {
-    mode: "minimum",
-    min: 3,
-    editable: true,
-    descripcion: "Mínimo 3%"
-  }
-};
 
 const porcentajeBloqueado = ref(false);
 
 /* ===========================================================
-   CARGAR DATOS CUANDO ES EDICIÓN
+   RESETEAR FORMULARIO Y ERRORES
    =========================================================== */
 function resetForm() {
   form.value = {
@@ -168,10 +133,11 @@ function resetForm() {
       proyecto: "",
       tipoVivienda: "",
       valorVivienda: 0,
-      modalidadVivienda: "",
+      viviendaSostenible: false,   // ✓ AGREGADO
+      bonoBbp: false,              // ✓ AGREGADO
       cuotaInicial: 0,
       cuotaInicialPorcentaje: 0,
-      tipoVIS: "",
+      tipoBbp: "",                 // ✓ CORREGIDO
       ubicacion: ""
     }
   };
@@ -188,17 +154,24 @@ function resetErrors() {
     viviendaTipo: "",
     viviendaValor: "",
     viviendaCuotaInicial: "",
-    viviendaModalidad: "",
-    viviendaVIS: "",
+    viviendaSostenible: "",
+    bonoBbp: "",
+    viviendaBBP: "",
     viviendaUbicacion: ""
   };
 }
 
+/* ===========================================================
+   CARGAR DATOS CUANDO ES EDICIÓN
+   =========================================================== */
 watch(
     () => props.cliente,
     (c) => {
+      console.log('🔍 CLIENTE RECIBIDO:', c); // ✅ AGREGAR ESTO
+      console.log('🏠 VIVIENDA:', c?.vivienda); // ✅ AGREGAR ESTO
+      console.log('📋 TIPO BBP:', c?.vivienda?.tipoBbp); // ✅ AGREGAR ESTO
+
       if (c && props.isEdit) {
-        // Copiamos solo lo que necesitamos
         form.value = {
           nombresApellidos: c.nombresApellidos ?? "",
           dni: c.dni ?? "",
@@ -212,13 +185,17 @@ watch(
             proyecto: c.vivienda?.proyecto ?? "",
             tipoVivienda: c.vivienda?.tipoVivienda ?? "",
             valorVivienda: c.vivienda?.valorVivienda ?? 0,
-            modalidadVivienda: c.vivienda?.modalidadVivienda ?? "",
+            viviendaSostenible: !!c.vivienda?.viviendaSostenible,
+            bonoBbp: !!c.vivienda?.bonoBbp,
             cuotaInicial: c.vivienda?.cuotaInicial ?? 0,
             cuotaInicialPorcentaje: c.vivienda?.cuotaInicialPorcentaje ?? 0,
-            tipoVIS: c.vivienda?.tipoVIS ?? "",
+            tipoBbp: c.vivienda?.tipoBbp ?? "",
             ubicacion: c.vivienda?.ubicacion ?? ""
           }
         };
+
+        console.log('✅ FORM CARGADO:', form.value); // ✅ AGREGAR ESTO
+        console.log('📋 TIPO BBP EN FORM:', form.value.vivienda.tipoBbp); // ✅ AGREGAR ESTO
       } else {
         resetForm();
       }
@@ -264,48 +241,6 @@ function validateForm() {
     valid = false;
   }
 
-// ========================================================
-//  VALIDACIÓN: Ingreso Familiar según modalidad / VIS
-// ========================================================
-  const IFM = Number(form.value.ingresoFamiliar);
-  const modalidad = form.value.vivienda.modalidadVivienda;
-  const tipoVIS = form.value.vivienda.tipoVIS;
-
-  let limiteIFM = null;
-
-// 1. ADQUISICIÓN DE VIVIENDA
-  if (modalidad === "Adquisición de Vivienda") {
-    const visPriorizadas = [
-      "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta",
-      "VIS Priorizada en Lote Unifamiliar"
-    ];
-
-    if (visPriorizadas.includes(tipoVIS)) {
-      // VIS Priorizadas: límite 2,071.2
-      limiteIFM = 2071.2;
-    } else {
-      // VIS normales (VIS en Lote Unifamiliar, VIS en Edificio...): límite 3,715.1
-      limiteIFM = 3715.1;
-    }
-  }
-
-// 2. CONSTRUCCIÓN EN SITIO PROPIO con Ninguna
-  if (modalidad === "Construcción en Sitio Propio" && tipoVIS === "Ninguna") {
-    limiteIFM = 2706.3;
-  }
-
-// 3. MEJORAMIENTO DE VIVIENDA con Ninguna
-  if (modalidad === "Mejoramiento de Vivienda" && tipoVIS === "Ninguna") {
-    limiteIFM = 2706.4;
-  }
-
-// Aplicar validación del límite IFM SOLO si se estableció un límite
-  if (limiteIFM !== null && IFM > limiteIFM) {
-    errors.value.ingresoFamiliar =
-        `El ingreso familiar no debe superar S/ ${limiteIFM.toLocaleString('es-PE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} para esta modalidad y tipo de VIS.`;
-    valid = false;
-  }
-
   // ========================================================
   //  VALIDACIONES DE VIVIENDA
   // ========================================================
@@ -325,105 +260,22 @@ function validateForm() {
     valid = false;
   }
 
-  // ========================================================
-  //  VALIDACIÓN: Valor máximo de vivienda según Tipo VIS
-  // ========================================================
-  const valorVivienda = Number(form.value.vivienda.valorVivienda) || 0;
-
-  // Definir límites según tipo de VIS
-  const limitesValorVIS = {
-    "VIS Priorizada en Lote Unifamiliar": 60000,
-    "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta": 70000,
-    "VIS en Lote Unifamiliar": 104500,
-    "VIS en Edificio Multifamiliar / Conjunto Residencial / Quinta": 130500,
-    "Ninguna": 130500  // Límite general
-  };
-
-  // Aplicar validación del valor máximo según tipo VIS
-  if (tipoVIS && limitesValorVIS[tipoVIS]) {
-    const limiteMaximo = limitesValorVIS[tipoVIS];
-
-    if (valorVivienda > limiteMaximo) {
-      errors.value.viviendaValor =
-          `Para el tipo de VIS "${tipoVIS}", el valor de la vivienda no debe superar S/ ${limiteMaximo.toLocaleString('es-PE')}`;
-      valid = false;
-    }
-  }
-
-  if (!form.value.vivienda.modalidadVivienda.trim()) {
-    errors.value.viviendaModalidad = "La modalidad de vivienda es requerida";
-    valid = false;
-  }
-
-  if (!form.value.vivienda.tipoVIS) {
-    errors.value.viviendaVIS = "El tipo de VIS es requerido";
-    valid = false;
-  }
-
-  // ========================================================
-  //  VALIDACIÓN: Relación Modalidad ↔ Tipo VIS
-  // ========================================================
-  if (modalidad && tipoVIS) {
-    // Para Construcción en Sitio Propio y Mejoramiento de Vivienda
-    if (modalidad === "Construcción en Sitio Propio" || modalidad === "Mejoramiento de Vivienda") {
-      if (tipoVIS !== "Ninguna") {
-        errors.value.viviendaVIS =
-            `Para la modalidad "${modalidad}" solo se permite seleccionar "Ninguna" como tipo de VIS.`;
-        valid = false;
-      }
-    }
-
-    // Para Adquisición de Vivienda
-    if (modalidad === "Adquisición de Vivienda") {
-      const tiposVISPermitidos = [
-        "VIS Priorizada en Lote Unifamiliar",
-        "VIS en Lote Unifamiliar",
-        "VIS en Edificio Multifamiliar / Conjunto Residencial / Quinta",
-        "VIS Priorizada en Edificio Multifamiliar / Conjunto Residencial / Quinta"
-      ];
-
-      if (!tiposVISPermitidos.includes(tipoVIS)) {
-        errors.value.viviendaVIS =
-            `Para la modalidad "Adquisición de Vivienda" debe seleccionar un tipo de VIS válido (no "Ninguna").`;
-        valid = false;
-      }
-    }
-  }
-
   if (!form.value.vivienda.ubicacion.trim()) {
     errors.value.viviendaUbicacion = "La ubicación es requerida";
     valid = false;
   }
 
-  // ========================================================
-  //  VALIDACIÓN: Porcentaje de Cuota Inicial según Tipo VIS
-  // ========================================================
-  const config = visConfig[form.value.vivienda.tipoVIS];
-  const porcentaje = Number(form.value.vivienda.cuotaInicialPorcentaje) || 0;
-
-  if (config) {
-    if (config.mode === "range") {
-      // Para VIS Priorizadas: Entre 1% y 3% (estricto)
-      if (porcentaje < config.min || porcentaje > config.max) {
-        errors.value.viviendaCuotaInicial =
-            `Para "${tipoVIS}" el porcentaje de cuota inicial debe estar entre ${config.min}% y ${config.max}%`;
-        valid = false;
-      }
-    } else if (config.mode === "minimum") {
-      // Para VIS normales y "Ninguna": Mínimo X% pero puede ser más
-      if (porcentaje < config.min) {
-        errors.value.viviendaCuotaInicial =
-            `Para "${tipoVIS}" el porcentaje de cuota inicial debe ser mínimo ${config.min}%`;
-        valid = false;
-      }
-    }
+  // Validación: Tipo de BBP
+  if (!form.value.vivienda.tipoBbp) {
+    errors.value.viviendaBBP = "El tipo de BBP es requerido";
+    valid = false;
   }
 
   return valid;
 }
 
 /* ===========================================================
-   DNI solo números y 8 dígitos
+   DNI SOLO NÚMEROS Y 8 DÍGITOS
    =========================================================== */
 function handleDniInput(e) {
   form.value.dni = e.target.value.replace(/[^0-9]/g, "").substring(0, 8);
@@ -435,21 +287,6 @@ function handleDniInput(e) {
 function recalcularCuotaDesdePorcentaje() {
   const valor = Number(form.value.vivienda.valorVivienda) || 0;
   let porcentaje = Number(form.value.vivienda.cuotaInicialPorcentaje) || 0;
-
-  const config = visConfig[form.value.vivienda.tipoVIS];
-
-  if (config?.mode === "range") {
-    // Para rangos estrictos (VIS Priorizadas), limitar entre min y max
-    if (porcentaje < config.min) porcentaje = config.min;
-    if (porcentaje > config.max) porcentaje = config.max;
-    form.value.vivienda.cuotaInicialPorcentaje = porcentaje;
-  } else if (config?.mode === "minimum") {
-    // Para mínimos, solo ajustar si es menor al mínimo permitido
-    if (porcentaje < config.min && porcentaje !== 0) {
-      porcentaje = config.min;
-      form.value.vivienda.cuotaInicialPorcentaje = porcentaje;
-    }
-  }
 
   if (valor > 0 && porcentaje >= 0) {
     form.value.vivienda.cuotaInicial = Number(
@@ -473,27 +310,6 @@ function recalcularPorcentajeDesdeCuota() {
   }
 }
 
-/* ===========================================================
-   FILTRO DINÁMICO: Tipos VIS según Modalidad
-   =========================================================== */
-const tiposVISFiltrados = computed(() => {
-  const modalidad = form.value.vivienda.modalidadVivienda;
-
-  // Si no hay modalidad seleccionada, mostrar todos
-  if (!modalidad) return tiposVIS;
-
-  // Para Construcción en Sitio Propio y Mejoramiento de Vivienda
-  if (modalidad === "Construcción en Sitio Propio" || modalidad === "Mejoramiento de Vivienda") {
-    return tiposVIS.filter(vis => vis.value === "Ninguna");
-  }
-
-  // Para Adquisición de Vivienda
-  if (modalidad === "Adquisición de Vivienda") {
-    return tiposVIS.filter(vis => vis.value !== "Ninguna");
-  }
-
-  return tiposVIS;
-});
 
 /* ===========================================================
    WATCHERS
@@ -510,13 +326,13 @@ watch(
 
       // Sincroniza automáticamente el resto de campos
       form.value.vivienda.tipoVivienda = v.tipo_vivienda;
-      form.value.vivienda.viviendaSostenible=v.vivienda_sostenible;
-      form.value.vivienda.bonoBbp=v.bono_bbp;
+      form.value.vivienda.viviendaSostenible = !!v.vivienda_sostenible;  // ✓ CORREGIDO
+      form.value.vivienda.bonoBbp = !!v.bono_bbp;                        // ✓ CORREGIDO
       form.value.vivienda.valorVivienda = Number(v.valor_vivienda);
-      form.value.vivienda.tipoBBP = v.tipo_bbp;
+      form.value.vivienda.tipoBbp = v.tipo_bbp || "";                    // ✓ CORREGIDO
       form.value.vivienda.ubicacion = v.ubicacion;
 
-      // Recalcular cuota inicial según porcentaje VIS
+      // Recalcular cuota inicial
       recalcularCuotaDesdePorcentaje();
     }
 );
@@ -529,81 +345,6 @@ watch(
     }
 );
 
-/* Cuando cambia la modalidad, resetear tipo VIS si no es compatible */
-watch(
-    () => form.value.vivienda.modalidadVivienda,
-    (nuevaModalidad) => {
-      const tipoVISActual = form.value.vivienda.tipoVIS;
-
-      // Si es Construcción o Mejoramiento y el tipo VIS no es "Ninguna"
-      if ((nuevaModalidad === "Construcción en Sitio Propio" || nuevaModalidad === "Mejoramiento de Vivienda")) {
-        if (tipoVISActual !== "Ninguna") {
-          form.value.vivienda.tipoVIS = "Ninguna";
-          form.value.vivienda.cuotaInicialPorcentaje = 0;
-        }
-        // Limpiar error de ingreso familiar cuando cambia a Construcción/Mejoramiento
-        errors.value.ingresoFamiliar = "";
-      }
-
-      // Si es Adquisición y el tipo VIS es "Ninguna"
-      if (nuevaModalidad === "Adquisición de Vivienda") {
-        if (tipoVISActual === "Ninguna" || !tipoVISActual) {
-          form.value.vivienda.tipoVIS = "";
-        }
-        // Limpiar error de ingreso familiar cuando cambia a Adquisición
-        errors.value.ingresoFamiliar = "";
-      }
-    }
-);
-
-/* Cuando cambia el tipo de VIS, limpiar error de ingreso familiar */
-watch(
-    () => form.value.vivienda.tipoVIS,
-    () => {
-      // Limpiar error de ingreso familiar cuando cambia el tipo VIS
-      errors.value.ingresoFamiliar = "";
-    }
-);
-
-/* Cuando cambia el tipo de VIS, aplicamos regla */
-watch(
-    () => form.value.vivienda.tipoVIS,
-    (nuevoTipo) => {
-      const config = visConfig[nuevoTipo];
-
-      if (!config) {
-        porcentajeBloqueado.value = false;
-        return;
-      }
-
-      // Todos los campos son editables ahora
-      porcentajeBloqueado.value = false;
-
-      if (config.mode === "range") {
-        // Para VIS Priorizadas: establecer en el mínimo si está vacío
-        if (!form.value.vivienda.cuotaInicialPorcentaje ||
-            form.value.vivienda.cuotaInicialPorcentaje < config.min) {
-          form.value.vivienda.cuotaInicialPorcentaje = config.min;
-        }
-      } else if (config.mode === "minimum") {
-        // Para VIS normales: establecer en el mínimo si está vacío o es menor
-        if (nuevoTipo === "Ninguna") {
-          // Para "Ninguna" puede ser 0 o más
-          if (!form.value.vivienda.cuotaInicialPorcentaje) {
-            form.value.vivienda.cuotaInicialPorcentaje = 0;
-          }
-        } else {
-          // Para otros con mínimo 3%
-          if (!form.value.vivienda.cuotaInicialPorcentaje ||
-              form.value.vivienda.cuotaInicialPorcentaje < config.min) {
-            form.value.vivienda.cuotaInicialPorcentaje = config.min;
-          }
-        }
-      }
-
-      recalcularCuotaDesdePorcentaje();
-    }
-);
 
 /* ===========================================================
    GUARDAR / CERRAR
@@ -620,7 +361,6 @@ function handleSubmit() {
 
   emit("save", { ...form.value });
 }
-
 
 function handleClose() {
   emit("update:visible", false);
@@ -862,24 +602,27 @@ function handleClose() {
           </small>
         </div>
 
-        <!-- Modalidad -->
+        <!-- ✓ NUEVO: ¿Vivienda Sostenible? -->
         <div class="col-12 md:col-6">
-          <label class="form-label">Modalidad de Vivienda</label>
-          <Dropdown
-              v-model="form.vivienda.modalidadVivienda"
-              :options="[
-                'Adquisición de Vivienda',
-                'Construcción en Sitio Propio',
-                'Mejoramiento de Vivienda'
-              ]"
-              placeholder="Seleccionar modalidad..."
-              class="w-full"
-              :class="{ 'p-invalid': errors.viviendaModalidad }"
-              appendTo="body"
-          />
-          <small v-if="errors.viviendaModalidad" class="p-error">
-            {{ errors.viviendaModalidad }}
-          </small>
+          <label class="form-label">¿Vivienda Sostenible?</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <RadioButton
+                  v-model="form.vivienda.viviendaSostenible"
+                  :value="true"
+                  class="radio-custom"
+              />
+              <label class="radio-label">Sí</label>
+            </div>
+            <div class="radio-option">
+              <RadioButton
+                  v-model="form.vivienda.viviendaSostenible"
+                  :value="false"
+                  class="radio-custom"
+              />
+              <label class="radio-label">No</label>
+            </div>
+          </div>
         </div>
 
         <!-- Cuota inicial -->
@@ -912,26 +655,31 @@ function handleClose() {
           </small>
         </div>
 
-        <!-- Tipo VIS -->
+        <!-- ✓ NUEVO: ¿Bono del Buen Pagador (BBP)? -->
         <div class="col-12 md:col-6">
-          <label class="form-label">Tipo de BBP</label>
-          <Dropdown
-              v-model="form.vivienda.tipoBBP"
-              :options="tiposVISFiltrados"
-              optionLabel="label"
-              optionValue="value"
-              placeholder="Seleccionar tipo de VIS..."
-              appendTo="body"
-              class="w-full"
-              :class="{ 'p-invalid': errors.viviendaVIS }"
-          />
-          <small v-if="errors.viviendaVIS" class="p-error">
-            {{ errors.viviendaVIS }}
-          </small>
+          <label class="form-label">¿Bono del Buen Pagador (BBP)?</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <RadioButton
+                  v-model="form.vivienda.bonoBbp"
+                  :value="true"
+                  class="radio-custom"
+              />
+              <label class="radio-label">Sí</label>
+            </div>
+            <div class="radio-option">
+              <RadioButton
+                  v-model="form.vivienda.bonoBbp"
+                  :value="false"
+                  class="radio-custom"
+              />
+              <label class="radio-label">No</label>
+            </div>
+          </div>
         </div>
 
         <!-- Ubicación -->
-        <div class="col-12">
+        <div class="col-12 md:col-6">
           <label class="form-label">Ubicación</label>
           <InputText
               v-model="form.vivienda.ubicacion"
@@ -940,6 +688,24 @@ function handleClose() {
           />
           <small v-if="errors.viviendaUbicacion" class="p-error">
             {{ errors.viviendaUbicacion }}
+          </small>
+        </div>
+
+        <!-- ✓ NUEVO: Tipo de BBP -->
+        <div class="col-12 md:col-6">
+          <label class="form-label">Tipo de BBP</label>
+          <Dropdown
+              v-model="form.vivienda.tipoBbp"
+              :options="tiposBBP"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Seleccionar tipo de BBP..."
+              appendTo="body"
+              class="w-full"
+              :class="{ 'p-invalid': errors.viviendaBBP }"
+          />
+          <small v-if="errors.viviendaBBP" class="p-error">
+            {{ errors.viviendaBBP }}
           </small>
         </div>
       </div>

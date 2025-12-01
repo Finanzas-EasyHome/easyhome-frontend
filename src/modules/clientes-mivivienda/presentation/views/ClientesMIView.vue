@@ -44,39 +44,35 @@ const formatCurrency = (value) => {
   }).format(value);
 };
 
-const openEditDialog = async (cliente) => {
-  const data = await fetchClienteById(cliente.id);
-
+const openEditDialog = (cliente) => {
   selectedCliente.value = {
-    id: data.id,
-    nombresApellidos: data.nombresApellidos,
-    dni: data.dni,
-    edad: data.edad,
-    ingresoFamiliar: data.ingresoFamiliar,
-    estadoCivil: data.estadoCivil,
-    tieneDiscapacidad: data.tieneDiscapacidad,
-    esMigranteRetornado: data.esMigranteRetornado,
-    esPersonaDesplazada: data.esPersonaDesplazada,
+    id: cliente.id,
+    nombresApellidos: cliente.nombresApellidos,
+    dni: cliente.dni,
+    edad: cliente.edad,
+    ingresoFamiliar: cliente.ingresoFamiliar,
+    estadoCivil: cliente.estadoCivil,
+    tieneDiscapacidad: cliente.tieneDiscapacidad,
+    esMigranteRetornado: cliente.esMigranteRetornado,
+    esPersonaDesplazada: cliente.esPersonaDesplazada,
 
     vivienda: {
-      id: data.vivienda?.id || null,   // ← CLAVE PARA UPDATE
-      proyecto: data.vivienda?.proyecto || "",
-      tipoVivienda: data.vivienda?.tipoVivienda || "",
-      valorVivienda: data.vivienda?.valorVivienda || 0,
-      viviendaSostenible: data.vivienda?.viviendaSostenible || 0,
-      bonoBbp: data.vivienda?.bonoBbp || 0,
-      cuotaInicial: data.vivienda?.cuotaInicial || 0,
-      cuotaInicialPorcentaje: data.vivienda?.cuotaInicialPorcentaje || 0,
-      tipoBBP: data.vivienda?.tipoBBP || "",
-      ubicacion: data.vivienda?.ubicacion || ""
+      id: cliente.vivienda?.id || null,
+      proyecto: cliente.vivienda?.proyecto || "",
+      tipoVivienda: cliente.vivienda?.tipoVivienda || "",
+      valorVivienda: cliente.vivienda?.valorVivienda || 0,
+      viviendaSostenible: cliente.vivienda?.viviendaSostenible || false,  // ✅ false en lugar de 0
+      bonoBbp: cliente.vivienda?.bonoBbp || false,  // ✅ false en lugar de 0
+      cuotaInicial: cliente.vivienda?.cuotaInicial || 0,
+      cuotaInicialPorcentaje: cliente.vivienda?.cuotaInicialPorcentaje || 0,
+      tipoBbp: cliente.vivienda?.tipoBbp || "",  // ✅ CORREGIDO: tipoBbp en lugar de tipoBBP
+      ubicacion: cliente.vivienda?.ubicacion || ""
     }
   };
 
   isEditMode.value = true;
   dialogVisible.value = true;
 };
-
-
 
 
 const openDetailDialog = (cliente) => {
