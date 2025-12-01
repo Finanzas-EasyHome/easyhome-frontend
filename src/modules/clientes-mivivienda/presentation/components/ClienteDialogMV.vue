@@ -119,10 +119,7 @@ const cumpleRequisitosBBP = computed(() => {
   const valor = Number(form.value.vivienda.valorVivienda) || 0;
   const porcentaje = Number(form.value.vivienda.cuotaInicialPorcentaje) || 0;
 
-  //  Validar rango de valor de vivienda (S/ 68,800 - S/ 488,800)
   const valorValido = valor >= 68800 && valor <= 488800;
-
-  //  Validar porcentaje mínimo de cuota inicial (7.5%)
   const porcentajeValido = porcentaje >= 7.5;
 
   return valorValido && porcentajeValido;
@@ -132,7 +129,6 @@ const cumpleRequisitosBBP = computed(() => {
    COMPUTED: TIPO BBP AUTOMÁTICO
    =========================================================== */
 const tipoBBPAutomatico = computed(() => {
-  // Si NO cumple requisitos o NO tiene BBP activo
   if (!cumpleRequisitosBBP.value || !form.value.vivienda.bonoBbp) {
     return "No aplica";
   }
@@ -143,28 +139,12 @@ const tipoBBPAutomatico = computed(() => {
   const esMigrante = form.value.esMigranteRetornado;
   const viviendaSostenible = form.value.vivienda.viviendaSostenible;
 
-  //  Verificar si cumple criterios de BBP Integrador
   const cumpleIntegrador = edad >= 60 || esDiscapacitado || esDesplazado || esMigrante;
 
-  //  BBP Integrador - Sostenible
-  if (cumpleIntegrador && viviendaSostenible) {
-    return "BBP Integrador - Sostenible";
-  }
-
-  //  BBP Integrador - Tradicional
-  if (cumpleIntegrador && !viviendaSostenible) {
-    return "BBP Integrador - Tradicional";
-  }
-
-  //  BBP Tradicional
-  if (!cumpleIntegrador && !viviendaSostenible) {
-    return "BBP Tradicional";
-  }
-
-  //  BBP Vivienda Sostenible
-  if (!cumpleIntegrador && viviendaSostenible) {
-    return "BBP Vivienda Sostenible";
-  }
+  if (cumpleIntegrador && viviendaSostenible) return "BBP Integrador - Sostenible";
+  if (cumpleIntegrador && !viviendaSostenible) return "BBP Integrador - Tradicional";
+  if (!cumpleIntegrador && !viviendaSostenible) return "BBP Tradicional";
+  if (!cumpleIntegrador && viviendaSostenible) return "BBP Vivienda Sostenible";
 
   return "No aplica";
 });
@@ -176,21 +156,11 @@ const mensajeBBP = computed(() => {
   const valor = Number(form.value.vivienda.valorVivienda) || 0;
   const porcentaje = Number(form.value.vivienda.cuotaInicialPorcentaje) || 0;
 
-  if (valor < 68800) {
-    return " Valor de vivienda debe ser mínimo S/ 68,800";
-  }
+  if (valor < 68800) return " Valor de vivienda debe ser mínimo S/ 68,800";
+  if (valor > 488800) return " Valor de vivienda debe ser máximo S/ 488,800 para BBP";
+  if (porcentaje < 7.5) return " Cuota inicial debe ser mínimo 7.5%";
 
-  if (valor > 488800) {
-    return " Valor de vivienda debe ser máximo S/ 488,800";
-  }
-
-  if (porcentaje < 7.5) {
-    return " Cuota inicial debe ser mínimo 7.5%";
-  }
-
-  if (cumpleRequisitosBBP.value) {
-    return " Cumple requisitos para Bono BBP";
-  }
+  if (cumpleRequisitosBBP.value) return " Cumple requisitos para Bono BBP";
 
   return "Ingrese valor de vivienda y cuota inicial";
 });
@@ -241,15 +211,11 @@ function resetErrors() {
 }
 
 /* ===========================================================
-    CARGAR DATOS EN EDICIÓN - CON LOGS DE DEBUG
+    CARGAR CLIENTE EN EDICIÓN
    =========================================================== */
 watch(
     () => props.cliente,
     (c) => {
-      console.log('🔍 CLIENTE RECIBIDO:', c);
-      console.log('🏠 VIVIENDA:', c?.vivienda);
-      console.log('📋 TIPO BBP RECIBIDO:', c?.vivienda?.tipoBbp);
-
       if (c && props.isEdit) {
         form.value = {
           nombresApellidos: c.nombresApellidos ?? "",
@@ -272,11 +238,6 @@ watch(
             ubicacion: c.vivienda?.ubicacion ?? ""
           }
         };
-
-        console.log(' FORM CARGADO:', form.value);
-        console.log('TIPO BBP EN FORM:', form.value.vivienda.tipoBbp);
-        console.log('CUOTA INICIAL:', form.value.vivienda.cuotaInicial);
-        console.log('PORCENTAJE:', form.value.vivienda.cuotaInicialPorcentaje);
       } else {
         resetForm();
       }
@@ -326,29 +287,21 @@ function validateForm() {
     valid = false;
   }
 
-  // VALIDACIÓN BBP
   if (form.value.vivienda.bonoBbp && !cumpleRequisitosBBP.value) {
     errors.value.bonoBbp = "No cumple requisitos para BBP";
     valid = false;
   }
 
-  // ================================
-  // VALIDACIONES CRÍTICAS NUEVAS
-  // ================================
-
-  //  Cuota inicial mínima 7.5%
   if (form.value.vivienda.cuotaInicialPorcentaje < 7.5) {
     errors.value.viviendaCuotaInicial = "La cuota inicial mínima es 7.5%";
     valid = false;
   }
 
-  //  Valor de vivienda máximo 488,800
   if (form.value.vivienda.valorVivienda > 488800) {
     errors.value.viviendaValor = "El valor de vivienda no puede exceder S/ 488,800";
     valid = false;
   }
 
-  //  Cuota inicial mayor a 0
   if (form.value.vivienda.cuotaInicial <= 0) {
     errors.value.viviendaCuotaInicial = "La cuota inicial debe ser mayor a cero";
     valid = false;
@@ -358,17 +311,14 @@ function validateForm() {
 }
 
 /* ===========================================================
-    CUOTAS - CON AUTO-CÁLCULO MEJORADO
+    CÁLCULOS DE CUOTAS
    =========================================================== */
 function recalcularCuotaDesdePorcentaje() {
   const valor = Number(form.value.vivienda.valorVivienda) || 0;
   const porcentaje = Number(form.value.vivienda.cuotaInicialPorcentaje) || 0;
 
   if (valor > 0 && porcentaje >= 0) {
-    const nuevaCuota = Number(((valor * porcentaje) / 100).toFixed(2));
-    form.value.vivienda.cuotaInicial = nuevaCuota;
-
-    console.log(` Recalculado desde %: ${porcentaje}% de S/ ${valor} = S/ ${nuevaCuota}`);
+    form.value.vivienda.cuotaInicial = Number(((valor * porcentaje) / 100).toFixed(2));
   } else {
     form.value.vivienda.cuotaInicial = 0;
   }
@@ -379,10 +329,7 @@ function recalcularPorcentajeDesdeCuota() {
   const cuota = Number(form.value.vivienda.cuotaInicial) || 0;
 
   if (valor > 0 && cuota >= 0) {
-    const nuevoPorcentaje = Number(((cuota * 100) / valor).toFixed(2));
-    form.value.vivienda.cuotaInicialPorcentaje = nuevoPorcentaje;
-
-    console.log(` Recalculado desde S/: S/ ${cuota} de S/ ${valor} = ${nuevoPorcentaje}%`);
+    form.value.vivienda.cuotaInicialPorcentaje = Number(((cuota * 100) / valor).toFixed(2));
   } else {
     form.value.vivienda.cuotaInicialPorcentaje = 0;
   }
@@ -408,54 +355,40 @@ watch(
 );
 
 /* ===========================================================
-    WATCHERS: AUTO-CÁLCULO DE CUOTAS (NUEVO)
+   WATCHERS: AUTO-CÁLCULO DE CUOTAS
    =========================================================== */
-
-//  Cuando cambia el VALOR de la vivienda, recalcular cuota
 watch(
     () => form.value.vivienda.valorVivienda,
     (nuevoValor, viejoValor) => {
       if (nuevoValor !== viejoValor) {
-        console.log(` Valor vivienda cambió: S/ ${viejoValor} → S/ ${nuevoValor}`);
         recalcularCuotaDesdePorcentaje();
       }
     }
 );
 
-//  Cuando cambia el PORCENTAJE, recalcular monto
 watch(
     () => form.value.vivienda.cuotaInicialPorcentaje,
-    (nuevoPorcentaje, viejoPorcentaje) => {
-      if (nuevoPorcentaje !== viejoPorcentaje) {
-        console.log(` Porcentaje cambió: ${viejoPorcentaje}% → ${nuevoPorcentaje}%`);
-        recalcularCuotaDesdePorcentaje();
-      }
+    (nuevo, viejo) => {
+      if (nuevo !== viejo) recalcularCuotaDesdePorcentaje();
     }
 );
 
-//  Cuando cambia el MONTO, recalcular porcentaje
 watch(
     () => form.value.vivienda.cuotaInicial,
-    (nuevaCuota, viejaCuota) => {
-      if (nuevaCuota !== viejaCuota) {
-        console.log(` Cuota cambió: S/ ${viejaCuota} → S/ ${nuevaCuota}`);
-        recalcularPorcentajeDesdeCuota();
-      }
+    (nuevo, viejo) => {
+      if (nuevo !== viejo) recalcularPorcentajeDesdeCuota();
     }
 );
 
 /* ===========================================================
-    WATCHERS: VALIDACIÓN AUTOMÁTICA BBP
+   WATCHERS BBP
    =========================================================== */
-
-//  Watcher: Validar requisitos cuando cambia valor o porcentaje
 watch(
     [
       () => form.value.vivienda.valorVivienda,
       () => form.value.vivienda.cuotaInicialPorcentaje
     ],
     () => {
-      // Si NO cumple requisitos, desactivar BBP automáticamente
       if (!cumpleRequisitosBBP.value) {
         form.value.vivienda.bonoBbp = false;
         form.value.vivienda.tipoBbp = "No aplica";
@@ -463,25 +396,20 @@ watch(
     }
 );
 
-//  Watcher: Cuando se activa/desactiva bonoBbp
 watch(
     () => form.value.vivienda.bonoBbp,
-    (nuevoBonoBbp) => {
-      if (!nuevoBonoBbp) {
-        // Si desactiva BBP, poner "No aplica"
+    (nuevo) => {
+      if (!nuevo) {
         form.value.vivienda.tipoBbp = "No aplica";
       } else if (cumpleRequisitosBBP.value) {
-        // Si activa BBP y cumple requisitos, calcular tipo automático
         form.value.vivienda.tipoBbp = tipoBBPAutomatico.value;
       } else {
-        // Si no cumple requisitos, desactivar
         form.value.vivienda.bonoBbp = false;
         form.value.vivienda.tipoBbp = "No aplica";
       }
     }
 );
 
-//  Watcher: Recalcular tipo BBP cuando cambian características del cliente
 watch(
     [
       () => form.value.edad,
@@ -491,50 +419,47 @@ watch(
       () => form.value.vivienda.viviendaSostenible
     ],
     () => {
-      // Solo recalcular si tiene BBP activo y cumple requisitos
       if (form.value.vivienda.bonoBbp && cumpleRequisitosBBP.value) {
         form.value.vivienda.tipoBbp = tipoBBPAutomatico.value;
       }
     }
 );
 
-// ========================================
-// Nuevo: Activar BBP automáticamente
-// cuando cumple requisitos BBP
-// ========================================
+/* ===========================================================
+   NUEVO WATCHER OFICIAL (REGALADO PARA TI)
+   =========================================================== */
 watch(
-    () => cumpleRequisitosBBP.value,
-    (cumple) => {
-      if (cumple) {
-        // Activar BBP automáticamente
-        form.value.vivienda.bonoBbp = true;
-        form.value.vivienda.tipoBbp = tipoBBPAutomatico.value;
-      } else {
-        // Desactivar BBP si ya no cumple
+    () => form.value.vivienda.valorVivienda,
+    (valor) => {
+      valor = Number(valor) || 0;
+
+      // 🟥 Viviendas con valor > 362,100 NO pueden aplicar BBP
+      if (valor > 362100) {
         form.value.vivienda.bonoBbp = false;
         form.value.vivienda.tipoBbp = "No aplica";
+        return;
+      }
+
+      // 🟩 Si vuelve a un valor dentro del rango y cumple requisitos
+      if (valor <= 362100 && cumpleRequisitosBBP.value) {
+        form.value.vivienda.bonoBbp = true;
+        form.value.vivienda.tipoBbp = tipoBBPAutomatico.value;
       }
     }
 );
 
-
 /* ===========================================================
-   ✅ GUARDAR - CON LOGS DE DEBUG
+   GUARDAR
    =========================================================== */
 function handleSubmit() {
   if (!validateForm()) return;
 
-  // ✅ Asegurar sincronización final
   recalcularPorcentajeDesdeCuota();
   recalcularCuotaDesdePorcentaje();
 
   form.value.aporte =
       Number(form.value.vivienda.valorVivienda) *
       (Number(form.value.vivienda.cuotaInicialPorcentaje) / 100);
-
-  console.log('📤 DATOS A GUARDAR:', form.value);
-  console.log('💰 Cuota final:', form.value.vivienda.cuotaInicial);
-  console.log('📊 Porcentaje final:', form.value.vivienda.cuotaInicialPorcentaje);
 
   emit("save", { ...form.value });
 }
@@ -548,7 +473,7 @@ function handleClose() {
 }
 
 function handleDniInput(event) {
-  form.value.dni = event.target.value.replace(/\D/g, '').slice(0, 8);
+  form.value.dni = event.target.value.replace(/\D/g, "").slice(0, 8);
 }
 </script>
 
