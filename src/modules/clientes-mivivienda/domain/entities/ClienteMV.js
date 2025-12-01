@@ -24,11 +24,11 @@ export class ClienteMV {
             proyecto: '',
             tipoVivienda: '',
             valorVivienda: 0,
-            viviendaSostenible: 0,
-            bonoBbp: 0,
+            viviendaSostenible: false,        // ✅ CORREGIDO: false en lugar de 0
+            bonoBbp: false,                   // ✅ CORREGIDO: false en lugar de 0
             cuotaInicial: 0,
             cuotaInicialPorcentaje: 0,
-            tipoBBP: '',
+            tipoBbp: '',                      // ✅ CORREGIDO: tipoBbp (minúscula)
             ubicacion: ''
         };
 
@@ -44,7 +44,7 @@ export class ClienteMV {
             this.vivienda.cuotaInicialPorcentaje = Number(((cuota * 100) / valor).toFixed(2));
         }
 
-// Si hay porcentaje, calcular cuotaInicial
+        // Si hay porcentaje, calcular cuotaInicial
         if (valor > 0 && porcentaje > 0) {
             this.vivienda.cuotaInicial = Number((valor * (porcentaje / 100)).toFixed(2));
         }
@@ -86,14 +86,36 @@ export class ClienteMV {
             errors.push('El estado civil es requerido');
         }
 
-        // Vivienda
-        if (!this.vivienda.proyecto.trim()) errors.push('El proyecto es requerido');
-        if (!this.vivienda.tipoVivienda.trim()) errors.push('El tipo de vivienda es requerido');
-        if (this.vivienda.valorVivienda <= 0) errors.push('El valor de la vivienda debe ser mayor a 0');
-        if (!this.vivienda.viviendaSostenible.trim()) errors.push('La vivienda sostenible es requerido');
-        if(!this.vivienda.bonoBbp.trim())errors.push('El bonoBbp es requerido');
-        if (!this.vivienda.tipoBBP.trim()) errors.push('El tipo de VIS es requerido');
-        if (!this.vivienda.ubicacion.trim()) errors.push('La ubicación es requerida');
+        // Validaciones de Vivienda
+        if (!this.vivienda.proyecto.trim()) {
+            errors.push('El proyecto es requerido');
+        }
+
+        if (!this.vivienda.tipoVivienda.trim()) {
+            errors.push('El tipo de vivienda es requerido');
+        }
+
+        if (this.vivienda.valorVivienda <= 0) {
+            errors.push('El valor de la vivienda debe ser mayor a 0');
+        }
+
+        // ✅ CORREGIDO: Validación para booleanos (sin .trim())
+        if (typeof this.vivienda.viviendaSostenible !== 'boolean') {
+            errors.push('Debe indicar si es vivienda sostenible');
+        }
+
+        // ✅ CORREGIDO: Validación para booleanos (sin .trim())
+        if (typeof this.vivienda.bonoBbp !== 'boolean') {
+            errors.push('Debe indicar si tiene Bono BBP');
+        }
+
+        if (!this.vivienda.tipoBbp.trim()) {
+            errors.push('El tipo de BBP es requerido');
+        }
+
+        if (!this.vivienda.ubicacion.trim()) {
+            errors.push('La ubicación es requerida');
+        }
 
         return {
             valid: errors.length === 0,
@@ -124,12 +146,11 @@ export class ClienteMV {
                 bonoBbp: this.vivienda.bonoBbp,
                 cuotaInicial: this.vivienda.cuotaInicial,
                 cuotaInicialPorcentaje: this.vivienda.cuotaInicialPorcentaje,
-                tipoBBP: this.vivienda.tipoBBP,
+                tipoBbp: this.vivienda.tipoBbp,           // ✅ CORREGIDO: tipoBbp
                 ubicacion: this.vivienda.ubicacion
             }
         };
     }
-
 
     toUpdateDTO() {
         return this.toCreateDTO(); // mismos campos
