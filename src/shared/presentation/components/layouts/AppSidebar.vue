@@ -19,6 +19,11 @@ const menuItems = ref([
     route: '/clientes'
   },
   {
+    label: 'Gestión de Clientes - NCMV',
+    icon: 'pi pi-building',
+    route: '/clientes-NCMV'
+  },
+  {
     label: 'Simulador de Financiamiento',
     icon: 'pi pi-calculator',
     route: '/simulador'
