@@ -164,6 +164,13 @@ export class CalcularSimulacion {
         sim.total_intereses = sim.totalIntereses;
         sim.cronograma_pagos = sim.cronogramaPagos;
         sim.monto_financiado = sim.montoPrestamo;
+        sim.total_amortizacion = sim.totalAmortizacion;
+        sim.total_seguro_desgravamen = sim.totalSeguroDesgravamen;
+        sim.total_seguro_riesgo = sim.totalSeguroRiesgo;
+        sim.total_gastos_admin = sim.totalGastosAdmin;
+        sim.total_comision = sim.totalComision;
+        sim.total_portes = sim.totalPortes;
+        sim.total_flujos = sim.totalFlujos;
     }
 
     /**
@@ -315,7 +322,6 @@ export class CalcularSimulacion {
                 flujoNeto = -(cuotaConSegDes + seguroRiesgoPeriodo + gastosAdminPeriodo);
             }
 
-            // Acumular totales
             totalIntereses += interes;
             totalAmortizacion += amortizacion;
             totalSeguroDesgravamen += seguroDesgravamen;
@@ -362,7 +368,8 @@ export class CalcularSimulacion {
             // SII = SI * (1 + IP)
             saldoInicial = saldoFinal;
         }
-
+        const totalFlujos = flujos.slice(1).reduce((acc, flujo) => acc + Math.abs(flujo), 0);
+        sim.totalFlujos = this.redondear2(totalFlujos);
         // Guardar resultados
         sim.cronogramaPagos = cronograma;
         sim.totalIntereses = this.redondear2(totalIntereses);

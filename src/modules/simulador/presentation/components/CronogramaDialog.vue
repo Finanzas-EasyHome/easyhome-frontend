@@ -32,10 +32,22 @@ const cronogramaVisible = computed(() => {
 });
 
 const totalData = computed(() => {
+  // Usar directamente los valores calculados en el backend
+  if (props.simulacion) {
+    return {
+      interes: props.simulacion.totalIntereses || props.simulacion.total_intereses || 0,
+      amortizacion: props.simulacion.totalAmortizacion || props.simulacion.total_amortizacion || 0,
+      seguroDesgravamen: props.simulacion.totalSeguroDesgravamen || props.simulacion.total_seguro_desgravamen || 0,
+      seguroRiesgo: props.simulacion.totalSeguroRiesgo || props.simulacion.total_seguro_riesgo || 0,
+      gastosAdmin: props.simulacion.totalGastosAdmin || props.simulacion.total_gastos_admin || 0,
+      flujo: props.simulacion.totalFlujos || props.simulacion.total_flujos || 0
+    };
+  }
+
+  // Fallback: Si no hay simulacion, calcular desde cronograma (solo por compatibilidad)
   if (!props.cronograma || props.cronograma.length === 0) {
     return {
       interes: 0,
-      cuotaConSegDes: 0,
       amortizacion: 0,
       seguroDesgravamen: 0,
       seguroRiesgo: 0,
@@ -44,9 +56,9 @@ const totalData = computed(() => {
     };
   }
 
+  // Calcular desde cronograma como último recurso
   return props.cronograma.reduce((acc, pago) => {
     acc.interes += Number(pago.interes || 0);
-    acc.cuotaConSegDes += Number(pago.cuotaConSegDes || pago.cuotaBase || 0);
     acc.amortizacion += Number(pago.amortizacion || 0);
     acc.seguroDesgravamen += Number(pago.seguroDesgravamen || 0);
     acc.seguroRiesgo += Number(pago.seguroRiesgo || pago.seguroInmueble || 0);
@@ -55,7 +67,6 @@ const totalData = computed(() => {
     return acc;
   }, {
     interes: 0,
-    cuotaConSegDes: 0,
     amortizacion: 0,
     seguroDesgravamen: 0,
     seguroRiesgo: 0,
@@ -63,7 +74,6 @@ const totalData = computed(() => {
     flujo: 0
   });
 });
-
 // Methods
 const formatCurrency = (value) => {
   const numero = Number(value || 0);

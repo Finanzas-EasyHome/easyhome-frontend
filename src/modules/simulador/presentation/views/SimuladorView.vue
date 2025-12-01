@@ -9,7 +9,21 @@ import { SimuladorRepositoryImpl } from '../../infrastructure/repositories/Simul
 
 const toast = useToast();
 const repository = new SimuladorRepositoryImpl();
+const formState = ref('initial'); // 'initial' | 'calculated' | 'saved' | 'editing'
 
+const camposDeshabilitados = computed(() => {
+
+  return formState.value === 'calculated' || formState.value === 'saved';
+});
+
+const botonesVisibles = computed(() => {
+  return {
+    calcular: formState.value === 'initial' || formState.value === 'editing',
+    guardar: formState.value === 'calculated',
+    editar: formState.value === 'calculated' || formState.value === 'saved',
+    limpiar: true // Siempre visible
+  };
+});
 const {
   simulacionActual,
   loading,
@@ -109,7 +123,7 @@ const formData = ref({
   comisionDesembolso: 0
 });
 
-// Estados de los diÃ¡logos
+
 const costosDialogVisible = ref(false);
 const cronogramaDialogVisible = ref(false);
 
@@ -117,7 +131,6 @@ const cronogramaDialogVisible = ref(false);
 const entidadSeleccionada = ref(null);
 const teaError = ref('');
 
-// âœ… NUEVO: aquÃ­ guardamos el rango de TEA que viene de Supabase
 const tasasEntidad = ref({
   min: 0,
   max: 0,
@@ -426,7 +439,7 @@ const handleCalcular = async () => {
     if (!formData.value.clienteNombre) {
       toast.add({
         severity: 'warn',
-        summary: 'Atencion',
+        summary: 'Atención',
         detail: 'Debe seleccionar un cliente',
         life: 3000
       });
@@ -436,7 +449,7 @@ const handleCalcular = async () => {
     if (!formData.value.entidadFinanciera) {
       toast.add({
         severity: 'warn',
-        summary: 'Atencion',
+        summary: 'Atención',
         detail: 'Debe seleccionar una entidad financiera',
         life: 3000
       });
@@ -465,23 +478,26 @@ const handleCalcular = async () => {
 
     updateMontoFinanciado();
     const simulacionData = mapToSimulacionData(formData.value);
-
     simulacionData.entidad_financiera = formData.value.entidadFinanciera;
 
     console.log("DATA ENVIADA A CALCULAR:", simulacionData);
 
     await calcular(simulacionData);
+
+    // ✅ CAMBIAR ESTADO A "CALCULATED"
+    formState.value = 'calculated';
+
     toast.add({
       severity: 'success',
-      summary: 'Exito',
-      detail: 'Simulacion calculada correctamente',
+      summary: 'Éxito',
+      detail: 'Simulación calculada correctamente',
       life: 3000
     });
   } catch (error) {
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: error.message || 'Error al calcular la simulaciÃ³n',
+      detail: error.message || 'Error al calcular la simulación',
       life: 3000
     });
   }
@@ -491,9 +507,12 @@ const handleGuardar = async () => {
   try {
     await guardar();
 
+
+    formState.value = 'saved';
+
     toast.add({
       severity: 'success',
-      summary: 'Exito',
+      summary: 'Éxito',
       detail: 'Los datos se guardaron exitosamente',
       life: 3000
     });
@@ -501,21 +520,24 @@ const handleGuardar = async () => {
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: error.message || 'Error al guardar la simulaciÃ³n',
+      detail: error.message || 'Error al guardar la simulación',
       life: 3000
     });
   }
 };
 
+// Reemplazar handleEditar
 const handleEditar = () => {
+  // ✅ CAMBIAR ESTADO A "EDITING"
+  formState.value = 'editing';
+
   toast.add({
     severity: 'info',
-    summary: 'Informacion',
+    summary: 'Modo edición',
     detail: 'Puede modificar los datos y volver a calcular',
     life: 3000
   });
 };
-
 const handleLimpiar = () => {
   formData.value = {
     clienteId: null,
@@ -527,6 +549,7 @@ const handleLimpiar = () => {
     montoBono: 0,
     montoFinanciado: 0,
     fechaInicioPago: new Date(),
+    tasaDescuento: 12,
     entidadFinanciera: '',
     tipoTasa: 'TEA',
     tasaInteres: 0,
@@ -538,13 +561,19 @@ const handleLimpiar = () => {
     tasacion: 0,
     seguroInmueble: 0,
     gastosNotariales: 0,
+    gastosRegistrales: 0,
+    cargosAdministrativos: 0,
     comisionDesembolso: 0
   };
 
   entidadSeleccionada.value = null;
   tasasEntidad.value = { min: 0, max: 0, promedio: 0 };
   teaError.value = '';
+  tasaDescuentoError.value = '';
   limpiarSimulacion();
+
+  // ✅ VOLVER AL ESTADO INICIAL
+  formState.value = 'initial';
 
   toast.add({
     severity: 'info',
@@ -668,7 +697,7 @@ onMounted(async () => {
                   optionValue="value"
                   placeholder="Seleccionar"
                   class="w-full"
-                  :disabled="loading"
+                  :disabled="camposDeshabilitados || loading"
                   appendTo="body"
               >
                 <template #value="slotProps">
@@ -705,7 +734,7 @@ onMounted(async () => {
                   optionValue="value"
                   placeholder="Seleccionar programa"
                   class="w-full"
-                  :disabled="loading"
+                  :disabled="camposDeshabilitados || loading"
               />
             </div>
           </div>
@@ -720,7 +749,7 @@ onMounted(async () => {
                   :minFractionDigits="2"
                   :maxFractionDigits="2"
                   class="w-full"
-                  :disabled="loading"
+                  :disabled="camposDeshabilitados || loading"
                   @input="updateMontoFinanciado"
               />
             </div>
@@ -739,7 +768,7 @@ onMounted(async () => {
                     :min="0"
                     :max="100"
                     class="cuota-percentage"
-                    :disabled="loading"
+                    :disabled="camposDeshabilitados || loading"
                 />
                 <InputNumber
                     id="cuotaInicial"
@@ -748,7 +777,7 @@ onMounted(async () => {
                     :minFractionDigits="2"
                     :maxFractionDigits="2"
                     class="cuota-amount"
-                    :disabled="loading"
+                    :disabled="camposDeshabilitados || loading"
                     @input="updateMontoFinanciado"
                 />
               </div>
@@ -765,7 +794,7 @@ onMounted(async () => {
                   :minFractionDigits="2"
                   :maxFractionDigits="2"
                   class="w-full"
-                  :disabled="loading"
+                  :disabled="camposDeshabilitados || loading"
                   @input="updateMontoFinanciado"
               />
             </div>
@@ -797,7 +826,7 @@ onMounted(async () => {
                       dateFormat="dd/mm/yy"
                       placeholder="dd/mm/aaaa"
                       class="w-full"
-                      :disabled="loading"
+                      :disabled="camposDeshabilitados || loading"
                   />
                 </div>
               </div>
@@ -842,7 +871,7 @@ onMounted(async () => {
                       optionValue="value"
                       placeholder="Seleccionar"
                       class="w-full"
-                      :disabled="loading"
+                      :disabled="camposDeshabilitados || loading"
                       appendTo="body"
                   />
                 </div>
@@ -867,7 +896,7 @@ onMounted(async () => {
                     :min="0"
                     :max="100"
                     class="flex-1"
-                    :disabled="loading || !formData.entidadFinanciera"
+                    :disabled="camposDeshabilitados || loading || !formData.entidadFinanciera"
                     :class="{ 'p-invalid': teaError }"
                 />
               </div>
@@ -893,7 +922,7 @@ onMounted(async () => {
                     icon="pi pi-plus"
                     class="p-button-success btn-plus"
                     @click="openCostosDialog"
-                    :disabled="loading"
+                    :disabled="camposDeshabilitados || loading"
                 />
               </div>
             </div>
@@ -910,7 +939,7 @@ onMounted(async () => {
                     optionLabel="label"
                     optionValue="value"
                     class="flex-1"
-                    :disabled="loading"
+                    :disabled="camposDeshabilitados || loading"
                     appendTo="body"
                 />
                 <InputNumber
@@ -934,7 +963,7 @@ onMounted(async () => {
                     optionLabel="label"
                     optionValue="value"
                     class="flex-1"
-                    :disabled="loading"
+                    :disabled="camposDeshabilitados || loading"
                     appendTo="body"
                 />
                 <Dropdown
@@ -944,7 +973,7 @@ onMounted(async () => {
                     optionLabel="label"
                     optionValue="value"
                     class="flex-1"
-                    :disabled="loading || formData.tipoPeriodoGracia === 'ninguno'"
+                    :disabled="camposDeshabilitados || loading || formData.tipoPeriodoGracia === 'ninguno'"
                     appendTo="body"
                 />
               </div>
@@ -965,7 +994,7 @@ onMounted(async () => {
             icon="pi pi-calculator"
             class="p-button-primary"
             @click="handleCalcular"
-            :loading="loading"
+            :disabled="camposDeshabilitados || loading"
         />
         <Button
             label="Guardar"
@@ -986,7 +1015,7 @@ onMounted(async () => {
             icon="pi pi-trash"
             class="p-button-secondary"
             @click="handleLimpiar"
-            :disabled="loading"
+            :disabled="camposDeshabilitados || loading"
         />
       </div>
 
@@ -1052,6 +1081,7 @@ onMounted(async () => {
               :options="cuotaOptions"
               optionLabel="label"
               optionValue="value"
+              :disabled="camposDeshabilitados || loading"
               class="cuota-select"
               appendTo="body"
           />
