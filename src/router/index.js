@@ -32,6 +32,15 @@ const routes = [
                 }
             },
             {
+                path: 'clientes-NCMV',
+                name: 'clientes-NCMV',
+                component: () => import('/src/modules/clientes-mivivienda/presentation/views/ClientesMIView.vue'),
+                meta: {
+                    title: 'Gestión de Clientes NCMV',
+                    requiresAuth: true
+                }
+            },
+            {
                 path: 'simulador',
                 name: 'simulador',
                 component: () => import('/src/modules/simulador/presentation/views/SimuladorView.vue'),
