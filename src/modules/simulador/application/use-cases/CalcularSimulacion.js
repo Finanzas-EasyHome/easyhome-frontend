@@ -302,17 +302,17 @@ export class CalcularSimulacion {
             }
 
             // FÓRMULA EXCEL 8: Flujo del período
-            // Según la lógica de tu Excel, el flujo varía según el tipo de período:
-            // - En GRACIA (T o P): incluye Cuota + SegDesgrav + SegRiesgo + Comisión + Portes + GasAdm
-            // - SIN GRACIA (S): incluye Cuota + SegRiesgo + Comisión + Portes (SIN SegDesgrav, SIN GasAdm)
+            // Según tu Excel:
+            // - En GRACIA (T o P): Flujo = Cuota + SegDesgrav + SegRiesgo + GasAdm
+            // - SIN GRACIA (S): Flujo = Cuota + SegRiesgo + GasAdm (SIN SegDesgrav)
 
             let flujoNeto;
             if (nc <= gMeses) {
-                // Período de GRACIA (T o P): incluye todos los costos
-                flujoNeto = -(cuotaConSegDes + seguroDesgravamen + seguroRiesgoPeriodo + comisionPeriodo + portesPeriodo + gastosAdminPeriodo);
+                // Período de GRACIA (T o P): incluye SegDesgrav
+                flujoNeto = -(cuotaConSegDes + seguroDesgravamen + seguroRiesgoPeriodo + gastosAdminPeriodo);
             } else {
-                // Período SIN GRACIA (S): NO incluye SegDesgrav ni GasAdm
-                flujoNeto = -(cuotaConSegDes + seguroRiesgoPeriodo + comisionPeriodo + portesPeriodo+ gastosAdminPeriodo);
+                // Período SIN GRACIA (S): NO incluye SegDesgrav, pero SÍ incluye GasAdm
+                flujoNeto = -(cuotaConSegDes + seguroRiesgoPeriodo + gastosAdminPeriodo);
             }
 
             // Acumular totales
@@ -339,14 +339,17 @@ export class CalcularSimulacion {
                 seguroRiesgo: this.redondear2(seguroRiesgoPeriodo),
                 comision: this.redondear2(comisionPeriodo),
                 portes: this.redondear2(portesPeriodo),
-                gastosAdmin: this.redondear2(gastosAdminPeriodo), // <-- AQUÍ estaba el problema
+                gastosAdmin: this.redondear2(gastosAdminPeriodo),
                 prepago: this.redondear2(prepago),
                 saldoFinal: this.redondear2(saldoFinal),
                 flujo: this.redondear2(flujoNeto),
 
                 // Campos adicionales para compatibilidad
+                // cuotaBase: es la cuota sin incluir otros costos periódicos
                 cuotaBase: this.redondear2(cuotaConSegDes),
-                cuotaTotal: this.redondear2(cuotaConSegDes + seguroRiesgoPeriodo),
+                // cuotaTotal: según tu Excel, es la misma que cuotaConSegDes
+                // Los otros costos (SegRiesgo, GasAdm) NO se suman a la cuota, van por separado
+                cuotaTotal: this.redondear2(cuotaConSegDes),
                 seguros: this.redondear2(seguroDesgravamen + seguroRiesgoPeriodo),
                 enPeriodoGracia: nc <= gMeses,
                 tipoPeriodoGracia: nc <= gMeses ? gTipo : null
@@ -377,6 +380,11 @@ export class CalcularSimulacion {
             ? this.redondear2(cuotasNormales[0].cuotaTotal)
             : 0;
 
+        console.log("=== CUOTA MENSUAL ===");
+        console.log("Cuotas normales encontradas:", cuotasNormales.length);
+        console.log("Primera cuota normal:", cuotasNormales[0]?.cuotaTotal);
+        console.log("Cuota mensual asignada:", sim.cuotaMensual);
+
         // Guardar TEP calculado
         sim.TEP = TEP;
         sim.seguroRiesgoPeriodo = seguroRiesgoPeriodo;
@@ -386,6 +394,10 @@ export class CalcularSimulacion {
         console.log("Cuota Normal (4+):", cronograma[3]?.cuotaConSegDes);
         console.log("Flujo Gracia:", cronograma[0]?.flujo);
         console.log("Flujo Normal:", cronograma[3]?.flujo);
+        console.log("=== FLUJOS PARA TIR/VAN ===");
+        console.log("Número de flujos:", flujos.length);
+        console.log("Primeros 5 flujos:", flujos.slice(0, 5));
+        console.log("Suma de flujos (debe ser cercana a 0):", flujos.reduce((a, b) => a + b, 0));
     }
 
     /**

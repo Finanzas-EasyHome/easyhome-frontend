@@ -527,7 +527,6 @@ const handleLimpiar = () => {
     montoBono: 0,
     montoFinanciado: 0,
     fechaInicioPago: new Date(),
-    tasaDescuento: 12, // ✅ AGREGADO
     entidadFinanciera: '',
     tipoTasa: 'TEA',
     tasaInteres: 0,
@@ -539,8 +538,6 @@ const handleLimpiar = () => {
     tasacion: 0,
     seguroInmueble: 0,
     gastosNotariales: 0,
-    cargosAdministrativos: 0,  // ✅ AGREGADO
-    gastosRegistrales: 0,
     comisionDesembolso: 0
   };
 
@@ -556,6 +553,7 @@ const handleLimpiar = () => {
     life: 2000
   });
 };
+
 const openCostosDialog = () => {
   costosDialogVisible.value = true;
 };
