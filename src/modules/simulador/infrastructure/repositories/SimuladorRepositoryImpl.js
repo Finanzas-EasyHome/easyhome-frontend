@@ -219,17 +219,19 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
 
             const payload = {
                 id: simulacion.id ?? crypto.randomUUID(),
-
                 user_id: userId,
 
-                // Relaciones
+                // ✅ RELACIONES - Asegurarse de capturar viviendaId correctamente
                 cliente_tp_id: simulacion.clienteId ?? null,
                 cliente_ncmv_id: null,
-                vivienda_tp_id: simulacion.viviendaId ?? null,
-                vivienda_ncmv_id: null,
-                entidad_id: simulacion.entidadId ?? null,
 
-                // Datos base
+                // ⚠️ CRÍTICO: Asegurarse de que viviendaId se mapee correctamente
+                vivienda_tp_id: simulacion.viviendaId ?? simulacion.vivienda_tp_id ?? null,
+                vivienda_ncmv_id: null,
+
+                entidad_id: simulacion.entidadId ?? simulacion.entidad_id ?? null,
+
+                // DATOS BASE
                 programa: simulacion.programa,
                 valor_vivienda: simulacion.valorVivienda,
 
@@ -239,38 +241,39 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
                 bono_monto: simulacion.montoBono,
                 saldo_financiar: simulacion.montoFinanciado,
 
-                // Tasas
+                // TASAS
                 tipo_tasa: "TEA",
                 tasa_valor: simulacion.tasaInteres,
-                tasa_descuento: simulacion.tasaDescuento ?? 0,
+                tasa_descuento: simulacion.tasaDescuento ?? simulacion.tasaDescuentoCOK ?? 0,
 
-                // Costos
-                seguro_desgravamen: simulacion.seguroDesgravamen,
-                seguro_inmueble: simulacion.seguroInmueble,
-                cargos_admin: simulacion.cargosAdmin ?? 0,
-                tasacion: simulacion.tasacion,
-                gastos_notariales: simulacion.gastosNotariales,
-                gastos_registrales: simulacion.gastosRegistrales,
-                comision_envio: simulacion.comisionDesembolso ?? 0,
+                // COSTOS
+                seguro_desgravamen: simulacion.seguroDesgravamen ?? simulacion.seguroDesgravamenPorcentaje ?? 0,
+                seguro_inmueble: simulacion.seguroInmueble ?? simulacion.seguroInmuebleAnual ?? 0,
+                cargos_admin: simulacion.cargosAdmin ?? simulacion.cargosAdministrativos ?? 0,
+                tasacion: simulacion.tasacion ?? 0,
+                gastos_notariales: simulacion.gastosNotariales ?? 0,
+                gastos_registrales: simulacion.gastosRegistrales ?? 0,
+                comision_envio: simulacion.comisionDesembolso ?? simulacion.comision ?? 0,
 
-                // Plazo
-                plazo_tipo: simulacion.plazoTipo,
+                // PLAZO
+                plazo_tipo: simulacion.plazoTipo ?? "meses",
                 plazo_valor: simulacion.plazoPrestamo,
 
-                // Gracia
+                // GRACIA
                 gracia_tipo: simulacion.tipoPeriodoGracia,
                 gracia_meses: simulacion.periodoGracia,
 
                 fecha_inicio_pago: simulacion.fechaInicioPago,
                 fecha_creacion: new Date().toISOString(),
 
-                // Resultados
+                // RESULTADOS
                 cuota: simulacion.cuotaMensual,
                 tcea: simulacion.tcea,
                 van: simulacion.van,
                 tir: simulacion.tir
             };
 
+            console.log('📤 PAYLOAD COMPLETO PARA SUPABASE:', payload);
 
             const { data, error } = await supabase
                 .from('simulaciones_plan_de_pagos')
@@ -281,12 +284,15 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
             if (error) {
                 console.error("❌ SUPABASE ERROR:", error);
                 console.error("❌ PAYLOAD ENVIADO:", payload);
-                throw error; // <-- devolver error REAL, no uno genérico
+                console.error("❌ ERROR COMPLETO:", JSON.stringify(error, null, 2));
+                throw error;
             }
 
+            console.log('✅ SIMULACIÓN GUARDADA EN SUPABASE:', data);
             return data;
+
         } catch (error) {
-            console.error('Error al guardar simulación:', error);
+            console.error('❌ Error en save():', error);
             throw error;
         }
     }
