@@ -27,6 +27,9 @@ const {
 } = useSimulador();
 
 const { allClientes, fetchClientes } = useClientes();
+// 🆕 NUEVO: Clientes dinámicos según programa
+const clientesDinamicos = ref([]);
+const cargandoClientes = ref(false);
 
 const tasaDescuentoError = ref('');
 
@@ -137,7 +140,7 @@ const getProgramaKey = () => {
 
 // Computed
 const clientesOptions = computed(() =>
-    allClientes.value.map(cliente => ({
+    clientesDinamicos.value.map(cliente => ({
       label: cliente.nombresApellidos,
       value: cliente.id,
       data: cliente
@@ -249,7 +252,28 @@ watch(() => formData.value.tasaDescuento, () => {
 });
 watch(
     () => formData.value.programaObjetivo,
-    async () => {
+    async (newPrograma, oldPrograma) => {
+      if (!newPrograma) return;
+
+      console.log(`🎯 Programa cambiado de ${oldPrograma} a ${newPrograma}`);
+
+      // 🆕 PASO 1: Cargar clientes del nuevo programa
+      await cargarClientesPorPrograma(newPrograma);
+
+      // 🆕 PASO 2: Limpiar cliente seleccionado si cambió el programa
+      if (oldPrograma && newPrograma !== oldPrograma) {
+        console.log('🧹 Limpiando datos del cliente anterior');
+        formData.value.clienteId = null;
+        formData.value.clienteNombre = '';
+        formData.value.valorVivienda = 0;
+        formData.value.cuotaInicial = 0;
+        formData.value.cuotaInicialPorcentaje = 0;
+        formData.value.montoBono = 0;
+        formData.value.modalidadVivienda = '';
+        formData.value.tipoVis = '';
+      }
+
+      // PASO 3: Actualizar tasas de entidad si ya hay una seleccionada
       if (!formData.value.entidadFinanciera) return;
 
       try {
@@ -264,6 +288,7 @@ watch(
           formData.value.tasaInteres = (Number(tasas.promedio) * 100).toFixed(2);
         }
 
+        console.log(`📊 Tasas actualizadas para ${programa}:`, tasas);
         validateTEA();
       } catch (err) {
         console.error('Error al recalcular tasas por cambio de programa:', err);
@@ -307,12 +332,48 @@ watch(() => formData.value.valorVivienda, () => {
     ) / 100;
   }
 });
+/**
+ * Carga clientes según el programa seleccionado
+ */
+const cargarClientesPorPrograma = async (programa) => {
+  if (!programa) {
+    clientesDinamicos.value = [];
+    return;
+  }
 
+  cargandoClientes.value = true;
+  try {
+    const clientes = await repository.getClientesPorPrograma(programa);
+    clientesDinamicos.value = clientes;
+
+    console.log(`✅ Clientes cargados para ${programa}:`, clientes.length);
+  } catch (err) {
+    console.error('Error cargando clientes por programa:', err);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'No se pudieron cargar los clientes para este programa',
+      life: 3000
+    });
+    clientesDinamicos.value = [];
+  } finally {
+    cargandoClientes.value = false;
+  }
+};
 // Methods
 const cargarDatosCliente = async (clienteId) => {
   try {
-    // Consultamos cliente + vivienda desde Supabase
-    const info = await repository.getClienteConVivienda(clienteId);
+    const programa = formData.value.programaObjetivo;
+    const esNCMV = programa === 'miVivienda' ||
+        programa === 'miViviendaVerde' ||
+        programa === 'convencional';
+
+    console.log(`🔍 Cargando cliente ${clienteId} del programa ${programa}`);
+    console.log(`📊 Es NCMV: ${esNCMV}`);
+
+    const info = esNCMV
+        ? await repository.getClienteConViviendaNCMV(clienteId)
+        : await repository.getClienteConVivienda(clienteId);
 
     if (!info) {
       toast.add({
@@ -324,69 +385,179 @@ const cargarDatosCliente = async (clienteId) => {
       return;
     }
 
-    // ================================
-    //  CLIENTE
-    // ================================
-    formData.value.clienteNombre = info.nombres_completos;
+    // CLIENTE
+    formData.value.clienteNombre = info.nombres_completos ||
+        `${info.nombres || ''} ${info.apellidos || ''}`.trim();
     formData.value.clienteId = info.id;
 
-    // ================================
-    //  VIVIENDA
-    // ================================
-    if (info.vivienda) {
-      const v = info.vivienda;  // âœ” CORRECTO: tomar primer registro 1â†’1
-      formData.value.modalidadVivienda = v.modalidad_vivienda;
-      formData.value.tipoVis = v.tipo_vis;
-
-      // Programa objetivo
-      formData.value.programaObjetivo = "techoPropio";
-
-      // Datos financieros
-      formData.value.valorVivienda = Number(v.valor_vivienda ?? 0);
-      formData.value.cuotaInicialPorcentaje = Number(v.porcentaje_cuota_inicial ?? 0);
-
-
-      // Cuota inicial S/
-      formData.value.cuotaInicial =
-          formData.value.valorVivienda *
-          (formData.value.cuotaInicialPorcentaje / 100);
-      try {
-        const bono = await fetchBonoTechoPropio(
-            formData.value.modalidadVivienda,
-            formData.value.tipoVis
-        );
-        formData.value.montoBono = bono;
-      } catch {
-        formData.value.montoBono = 0;   // si falla â†’ 0
-      }
-
-      // Saldo a financiar
-      formData.value.montoFinanciado =
-          formData.value.valorVivienda -
-          formData.value.cuotaInicial -
-          formData.value.montoBono;
+    // VIVIENDA
+    const vivienda = info.vivienda;
+    if (!vivienda) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Sin vivienda',
+        detail: 'Este cliente no tiene datos de vivienda.',
+        life: 2500
+      });
+      return;
     }
 
+    // Datos comunes de vivienda
+    formData.value.valorVivienda = Number(vivienda.valor_vivienda || 0);
+
+    // 🔥 AMBAS TABLAS usan porcentaje_cuota_inicial
+    formData.value.cuotaInicialPorcentaje = Number(vivienda.porcentaje_cuota_inicial || 0);
+    formData.value.cuotaInicial = formData.value.valorVivienda * (formData.value.cuotaInicialPorcentaje / 100);
+
+    // Campos específicos por programa
+    if (esNCMV) {
+      formData.value.modalidadVivienda = vivienda.tipo_vivienda || '';
+      formData.value.tipoVis = vivienda.tipo_bbp || '';
+
+      console.log('📦 Datos NCMV cargados:', {
+        tipo_vivienda: vivienda.tipo_vivienda,
+        tipo_bbp: vivienda.tipo_bbp,
+        vivienda_sostenible: vivienda.vivienda_sostenible,
+        bono_bbp: vivienda.bono_bbp
+      });
+    } else {
+      formData.value.modalidadVivienda = vivienda.modalidad_vivienda || '';
+      formData.value.tipoVis = vivienda.tipo_vis || '';
+
+      console.log('🏠 Datos Techo Propio cargados:', {
+        modalidad_vivienda: vivienda.modalidad_vivienda,
+        tipo_vis: vivienda.tipo_vis
+      });
+    }
+
+    // Calcular monto de bono según programa
+    await calcularBonoPorPrograma();
+
+    // Calcular saldo a financiar
+    formData.value.montoFinanciado =
+        formData.value.valorVivienda -
+        formData.value.cuotaInicial -
+        formData.value.montoBono;
 
     toast.add({
-      severity: "success",
-      summary: "Datos cargados",
-      detail: `Datos del cliente ${info.nombres_completos} cargados correctamente`,
-      life: 2000,
+      severity: 'success',
+      summary: 'Datos cargados',
+      detail: `Datos del cliente ${formData.value.clienteNombre} cargados correctamente`,
+      life: 2000
     });
 
+    console.log('✅ Datos cliente cargados:', {
+      cliente: formData.value.clienteNombre,
+      programa: programa,
+      valorVivienda: formData.value.valorVivienda,
+      cuotaInicialPorcentaje: formData.value.cuotaInicialPorcentaje,
+      cuotaInicial: formData.value.cuotaInicial,
+      montoBono: formData.value.montoBono,
+      montoFinanciado: formData.value.montoFinanciado
+    });
 
   } catch (error) {
     console.error('Error al cargar datos del cliente:', error);
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: 'No se pudo cargar la informacion del cliente',
+      detail: error.message || 'No se pudo cargar la información del cliente',
       life: 3000
     });
   }
 };
 
+/**
+ * Calcula el bono según el programa seleccionado
+ */
+const calcularBonoPorPrograma = async () => {
+  const programa = formData.value.programaObjetivo;
+  const esNCMV = programa === 'miVivienda' ||
+      programa === 'miViviendaVerde' ||
+      programa === 'convencional';
+
+  if (esNCMV) {
+    // 🆕 BONO BBP PARA NCMV
+    await calcularBonoBBP();
+  } else {
+    // BONO TECHO PROPIO (código existente)
+    const modalidad = formData.value.modalidadVivienda;
+    const tipoVis = formData.value.tipoVis;
+
+    if (!modalidad || !tipoVis) {
+      formData.value.montoBono = 0;
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+          .from('bono_techo_propio')
+          .select('monto')
+          .eq('modalidad_vivienda', modalidad)
+          .eq('tipo_vis', tipoVis)
+          .single();
+
+      if (error) throw error;
+      formData.value.montoBono = Number(data?.monto || 0);
+      console.log(`💰 Bono Techo Propio: S/ ${formData.value.montoBono}`);
+    } catch (err) {
+      console.error('Error obteniendo bono Techo Propio:', err);
+      formData.value.montoBono = 0;
+    }
+  }
+};
+
+// 🆕 Nueva función para calcular BBP
+const calcularBonoBBP = async () => {
+  try {
+    const valorVivienda = formData.value.valorVivienda;
+    const tipoBBP = formData.value.tipoVis;
+
+    // Determinar rango
+    let rango = '';
+    if (valorVivienda >= 68800 && valorVivienda <= 98100) rango = 'R1';
+    else if (valorVivienda > 98100 && valorVivienda <= 146900) rango = 'R2';
+    else if (valorVivienda > 146900 && valorVivienda <= 244600) rango = 'R3';
+    else if (valorVivienda > 244600 && valorVivienda <= 362100) rango = 'R4';
+    else if (valorVivienda > 362100 && valorVivienda <= 488800) rango = 'R5';
+    else {
+      formData.value.montoBono = 0;
+      console.log('⚠️ Valor fuera de rangos:', valorVivienda);
+      return;
+    }
+
+    // Si el tipo es "No aplica", bono = 0
+    if (!tipoBBP || tipoBBP === 'No aplica') {
+      formData.value.montoBono = 0;
+      console.log('⚠️ Cliente sin BBP');
+      return;
+    }
+
+    console.log(`🔍 Buscando BBP - Rango: ${rango}, Tipo: ${tipoBBP}`);
+
+    try {
+      const data = await repository.getBonoBBP(rango, tipoBBP);
+      formData.value.montoBono = Number(data?.monto || 0);
+      console.log(`💰 Bono BBP encontrado: S/ ${formData.value.montoBono}`);
+    } catch (err) {
+      // Si no existe la combinación rango+tipo, bono = 0
+      console.warn(`⚠️ No existe bono para ${rango} - ${tipoBBP}. Asignando bono S/ 0`);
+      formData.value.montoBono = 0;
+
+      // Opcional: Mostrar advertencia al usuario
+      toast.add({
+        severity: 'warn',
+        summary: 'Bono no disponible',
+        detail: `El tipo "${tipoBBP}" no está disponible para el rango ${rango}`,
+        life: 3000
+      });
+    }
+
+  } catch (err) {
+    console.error('Error obteniendo bono BBP:', err);
+    formData.value.montoBono = 0;
+  }
+};
 
 const validateTEA = () => {
   if (!formData.value.tasaInteres && formData.value.tasaInteres !== 0) {
@@ -641,9 +812,27 @@ const tasaDescuentoRentabilidad = computed(() => {
 
 // Lifecycle
 onMounted(async () => {
-  await fetchClientes();
-  await fetchEntidadesFinancieras();
-  await fetchProgramasVivienda();
+  try {
+    await Promise.all([
+      fetchEntidadesFinancieras(),
+      fetchProgramasVivienda()
+    ]);
+
+    // 🆕 Si hay un programa preseleccionado, cargar sus clientes
+    if (formData.value.programaObjetivo) {
+      await cargarClientesPorPrograma(formData.value.programaObjetivo);
+    }
+
+    console.log('✅ Simulador inicializado correctamente');
+  } catch (err) {
+    console.error('Error en inicialización:', err);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Error al inicializar el simulador',
+      life: 3000
+    });
+  }
 });
 </script>
 
@@ -666,9 +855,10 @@ onMounted(async () => {
                   :options="clientesOptions"
                   optionLabel="label"
                   optionValue="value"
-                  placeholder="Seleccionar"
+                  placeholder="Seleccionar cliente"
+                  :loading="cargandoClientes"
+                  :disabled="!formData.programaObjetivo || cargandoClientes"
                   class="w-full"
-                  :disabled="loading"
                   appendTo="body"
               >
                 <template #value="slotProps">
@@ -677,8 +867,8 @@ onMounted(async () => {
                     {{ clientesOptions.find(c => c.value === slotProps.value)?.label }}
                   </div>
                   <span v-else>
-                    {{ slotProps.placeholder }}
-                  </span>
+          {{ slotProps.placeholder }}
+        </span>
                 </template>
                 <template #option="slotProps">
                   <div class="flex align-items-center">
@@ -687,7 +877,15 @@ onMounted(async () => {
                   </div>
                 </template>
               </Dropdown>
-              <small class="p-help">Los datos del cliente se cargarÃ¡n automÃ¡ticamente</small>
+              <small class="p-help" v-if="!formData.programaObjetivo">
+                Primero seleccione un programa de vivienda
+              </small>
+              <small class="p-help" v-else-if="clientesDinamicos.length === 0 && !cargandoClientes">
+                No hay clientes registrados para este programa
+              </small>
+              <small class="p-help" v-else>
+                Los datos del cliente se cargarán automáticamente
+              </small>
             </div>
           </div>
 

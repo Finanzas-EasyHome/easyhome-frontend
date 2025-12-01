@@ -157,25 +157,57 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
             throw err;
         }
     }
+    async getBonoBBP(rango, tipoBBP) {
+        try {
+            console.log(`🔍 Consultando bono_bbp: rango="${rango}", tipo_bbp="${tipoBBP}"`);
 
+            const { data, error } = await supabase
+                .from('bono_bbp')
+                .select('monto')
+                .eq('rango', rango)
+                .eq('tipo_bbp', tipoBBP);
+
+            if (error) {
+                console.error('❌ Error Supabase:', error);
+                throw error;
+            }
+
+            console.log(`📊 Resultados encontrados:`, data);
+
+            if (!data || data.length === 0) {
+                throw new Error(`No se encontró bono para ${rango} - ${tipoBBP}`);
+            }
+
+            // Tomar el primer resultado si hay múltiples
+            return data[0];
+
+        } catch (err) {
+            console.error('Error getBonoBBP:', err);
+            throw err;
+        }
+    }
+
+    // ============================================================
+    // CLIENTES Y VIVIENDAS - TECHO PROPIO
+    // ============================================================
     async getClienteConVivienda(clienteId) {
         try {
             const { data, error } = await supabase
                 .from("clientes_techo_propio")
                 .select(`
-                *,
-                 vivienda:vivienda_techo_propio!vivienda_techo_propio_fk_cliente_fkey(
-                    id,
-                    proyecto,
-                    tipo_vivienda,
-                    valor_vivienda,
-                    modalidad_vivienda,
-                    porcentaje_cuota_inicial,
-                    tipo_vis,
-                    ubicacion,
-                    fecha_registro
-                )
-            `)
+            *,
+             vivienda:vivienda_techo_propio!vivienda_techo_propio_fk_cliente_fkey(
+                id,
+                proyecto,
+                tipo_vivienda,
+                valor_vivienda,
+                modalidad_vivienda,
+                porcentaje_cuota_inicial,
+                tipo_vis,
+                ubicacion,
+                fecha_registro
+            )
+        `)
                 .eq("id", clienteId)
                 .single();
 
@@ -192,6 +224,90 @@ export class SimuladorRepositoryImpl extends SimuladorRepository {
         } catch (err) {
             console.error("Error getClienteConVivienda:", err);
             throw new Error("Error obteniendo datos del cliente");
+        }
+    }
+
+    // ============================================================
+    // CLIENTES Y VIVIENDAS - NCMV (NUEVO CRÉDITO MIVIVIENDA)
+    // ============================================================
+    /**
+     * Obtiene cliente y vivienda de NCMV (Nuevo Crédito MiVivienda)
+     */
+    async getClienteConViviendaNCMV(clienteId) {
+        try {
+            const { data, error } = await supabase
+                .from("clientes_ncmv")
+                .select(`
+                *,
+                vivienda:viviendas_ncmv!fk_cliente(
+                    id,
+                    proyecto,
+                    tipo_vivienda,
+                    valor_vivienda,
+                    vivienda_sostenible,
+                    bono_bbp,
+                    porcentaje_cuota_inicial,
+                    tipo_bbp,
+                    ubicacion,
+                    fecha_registro
+                )
+            `)
+                .eq("id", clienteId)
+                .single();
+
+            if (error) {
+                console.error("Error obteniendo cliente NCMV/vivienda:", error);
+                throw new Error("No se pudo obtener los datos del cliente NCMV");
+            }
+
+            if (Array.isArray(data.vivienda)) {
+                data.vivienda = data.vivienda[0] ?? null;
+            }
+
+            return data;
+
+        } catch (err) {
+            console.error("Error getClienteConViviendaNCMV:", err);
+            throw new Error("Error obteniendo datos del cliente NCMV");
+        }
+    }
+    // ============================================================
+    // OBTENER CLIENTES POR PROGRAMA
+    // ============================================================
+    /**
+     * Obtiene todos los clientes según el programa
+     */
+    async getClientesPorPrograma(programa) {
+        try {
+            const esNCMV = programa === 'miVivienda' ||
+                programa === 'miViviendaVerde' ||
+                programa === 'convencional';
+
+            const tabla = esNCMV ? 'clientes_ncmv' : 'clientes_techo_propio';
+
+            console.log(`🔍 Buscando clientes en tabla: ${tabla} para programa: ${programa}`);
+
+            const { data, error } = await supabase
+                .from(tabla)
+                .select('id, nombres_completos')
+                .order('nombres_completos', { ascending: true });
+
+            if (error) {
+                console.error(`Error obteniendo clientes de ${tabla}:`, error);
+                throw new Error(`No se pudieron cargar los clientes de ${programa}`);
+            }
+
+            const clientes = data.map(cliente => ({
+                id: cliente.id,
+                nombresApellidos: cliente.nombres_completos
+            }));
+
+            console.log(`✅ ${clientes.length} clientes encontrados en ${tabla}`);
+            return clientes;
+
+        } catch (err) {
+            console.error("Error getClientesPorPrograma:", err);
+            throw err;
         }
     }
 
