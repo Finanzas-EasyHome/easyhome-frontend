@@ -202,8 +202,8 @@ const statusBadge = (value) => (value ? "badge-success" : "badge-danger");
 
           <div class="col-12 md:col-6">
             <div class="detail-item">
-              <span class="detail-label">Tipo VIS:</span>
-              <span class="detail-value">{{ cliente.vivienda.tipoVIS }}</span>
+              <span class="detail-label">Tipo BBP:</span>
+              <span class="detail-value">{{ cliente.vivienda.tipoBbp }}</span>
             </div>
           </div>
 
