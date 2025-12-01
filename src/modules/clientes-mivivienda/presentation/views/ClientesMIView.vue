@@ -61,12 +61,11 @@ const openEditDialog = (cliente) => {
       proyecto: cliente.vivienda?.proyecto || "",
       tipoVivienda: cliente.vivienda?.tipoVivienda || "",
       valorVivienda: cliente.vivienda?.valorVivienda || 0,
-      viviendaSostenible: cliente.vivienda?.viviendaSostenible || 0,
-      bonoBbp: cliente.vivienda?.bonoBbp || 0,
+      viviendaSostenible: cliente.vivienda?.viviendaSostenible || false,  // ✅ false en lugar de 0
+      bonoBbp: cliente.vivienda?.bonoBbp || false,  // ✅ false en lugar de 0
       cuotaInicial: cliente.vivienda?.cuotaInicial || 0,
       cuotaInicialPorcentaje: cliente.vivienda?.cuotaInicialPorcentaje || 0,
-      tipoBBP: cliente.vivienda?.tipoBBP || "",
-      modalidadVivienda: cliente.vivienda?.modalidadVivienda || "",
+      tipoBbp: cliente.vivienda?.tipoBbp || "",  // ✅ CORREGIDO: tipoBbp en lugar de tipoBBP
       ubicacion: cliente.vivienda?.ubicacion || ""
     }
   };
