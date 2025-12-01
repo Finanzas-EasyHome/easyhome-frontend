@@ -7,25 +7,29 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["update:visible"]);
-
+const formatPercent = (value, decimals = 2) => {
+  if (value === null || value === undefined) return "0%";
+  return Number(value).toFixed(decimals) + "%";
+};
 const handleClose = () => {
   emit("update:visible", false);
 };
 
 const formatCurrency = (value) => {
-  if (!value || isNaN(value)) return "0.00";
+  const num = Number(value);
+
+  if (isNaN(num)) return "S/ 0.00";
 
   return new Intl.NumberFormat("es-PE", {
     style: "currency",
     currency: "PEN",
     minimumFractionDigits: 2,
-  }).format(Number(value));
+  }).format(num);
 };
 
 
 const formatBoolean = (val) => (val ? "Sí" : "No");
 
-// 🟢 Badge color
 const statusBadge = (value) => (value ? "badge-success" : "badge-danger");
 </script>
 
@@ -190,7 +194,9 @@ const statusBadge = (value) => (value ? "badge-success" : "badge-danger");
           <div class="col-12 md:col-6">
             <div class="detail-item">
               <span class="detail-label">Cuota Inicial (%):</span>
-              <span class="detail-value">{{ cliente.vivienda.cuotaInicialPorcentaje }}%</span>
+              <span class="detail-value">
+  {{ formatPercent(cliente.vivienda.cuotaInicialPorcentaje) }}
+</span>
             </div>
           </div>
 

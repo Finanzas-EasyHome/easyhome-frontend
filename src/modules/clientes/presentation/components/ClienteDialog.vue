@@ -698,11 +698,15 @@ function handleClose() {
         <!-- Ingreso Familiar -->
         <div class="col-12 md:col-6">
           <label class="form-label">Ingreso Familiar (S/.)</label>
-          <InputText
+          <InputNumber
               v-model="form.ingresoFamiliar"
-              type="number"
-              placeholder="0.00"
+              mode="currency"
+              currency="PEN"
+              locale="es-PE"
+              :minFractionDigits="2"
+              class="w-full"
               :class="{ 'p-invalid': errors.ingresoFamiliar }"
+              placeholder="0.00"
           />
           <small v-if="errors.ingresoFamiliar" class="p-error">
             {{ errors.ingresoFamiliar }}
@@ -840,9 +844,13 @@ function handleClose() {
         <!-- Valor vivienda -->
         <div class="col-12 md:col-6">
           <label class="form-label">Valor de la Vivienda (S/.)</label>
-          <InputText
+          <InputNumber
               v-model="form.vivienda.valorVivienda"
-              type="number"
+              mode="currency"
+              currency="PEN"
+              locale="es-PE"
+              :minFractionDigits="2"
+              class="w-full"
               :class="{ 'p-invalid': errors.viviendaValor }"
               placeholder="0.00"
           />
@@ -875,21 +883,25 @@ function handleClose() {
         <div class="col-12 md:col-6">
           <label class="form-label">Cuota inicial (S/.)</label>
           <div class="cuota-input-group">
-            <InputText
+            <!-- Porcentaje -->
+            <InputNumber
                 v-model="form.vivienda.cuotaInicialPorcentaje"
-                type="number"
-                placeholder="%"
+                suffix="%"
+                :minFractionDigits="2"
+                :maxFractionDigits="2"
                 class="cuota-percentage"
                 :disabled="porcentajeBloqueado"
                 @input="recalcularCuotaDesdePorcentaje"
             />
-            <InputText
+            <InputNumber
                 v-model="form.vivienda.cuotaInicial"
-                type="number"
+                mode="currency"
+                currency="PEN"
+                locale="es-PE"
+                :minFractionDigits="2"
                 class="cuota-amount"
-                :class="{ 'p-invalid': errors.viviendaCuotaInicial }"
-                placeholder="0.00"
                 @input="recalcularPorcentajeDesdeCuota"
+                :class="{ 'p-invalid': errors.viviendaCuotaInicial }"
             />
           </div>
           <small v-if="errors.viviendaCuotaInicial" class="p-error">
