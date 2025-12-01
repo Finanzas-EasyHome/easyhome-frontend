@@ -24,10 +24,11 @@ export class ClienteMV {
             proyecto: '',
             tipoVivienda: '',
             valorVivienda: 0,
-            modalidadVivienda: '',
+            viviendaSostenible: 0,
+            bonoBbp: 0,
             cuotaInicial: 0,
             cuotaInicialPorcentaje: 0,
-            tipoVIS: '',
+            tipoBBP: '',
             ubicacion: ''
         };
 
@@ -89,8 +90,9 @@ export class ClienteMV {
         if (!this.vivienda.proyecto.trim()) errors.push('El proyecto es requerido');
         if (!this.vivienda.tipoVivienda.trim()) errors.push('El tipo de vivienda es requerido');
         if (this.vivienda.valorVivienda <= 0) errors.push('El valor de la vivienda debe ser mayor a 0');
-        if (!this.vivienda.modalidadVivienda.trim()) errors.push('La modalidad es requerida');
-        if (!this.vivienda.tipoVIS.trim()) errors.push('El tipo de VIS es requerido');
+        if (!this.vivienda.viviendaSostenible.trim()) errors.push('La vivienda sostenible es requerido');
+        if(!this.vivienda.bonoBbp.trim())errors.push('El bonoBbp es requerido');
+        if (!this.vivienda.tipoBBP.trim()) errors.push('El tipo de VIS es requerido');
         if (!this.vivienda.ubicacion.trim()) errors.push('La ubicación es requerida');
 
         return {
@@ -118,10 +120,11 @@ export class ClienteMV {
                 proyecto: this.vivienda.proyecto,
                 tipoVivienda: this.vivienda.tipoVivienda,
                 valorVivienda: this.vivienda.valorVivienda,
-                modalidadVivienda: this.vivienda.modalidadVivienda,
+                viviendaSostenible: this.vivienda.viviendaSostenible,
+                bonoBbp: this.vivienda.bonoBbp,
                 cuotaInicial: this.vivienda.cuotaInicial,
                 cuotaInicialPorcentaje: this.vivienda.cuotaInicialPorcentaje,
-                tipoVIS: this.vivienda.tipoVIS,
+                tipoBBP: this.vivienda.tipoBBP,
                 ubicacion: this.vivienda.ubicacion
             }
         };

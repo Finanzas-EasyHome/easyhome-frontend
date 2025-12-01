@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
-import { useClientes } from '../composables/useClientes.js';
+import { useClientes } from '/src/modules/clientes-mivivienda/presentation/composables/useClientes.js';
 import ClienteDialog from '../components/ClienteDialogMV.vue';
 import ClienteDetailDialogMv from '../components/ClienteDetailDialogMV.vue';
 
@@ -63,10 +63,11 @@ const openEditDialog = async (cliente) => {
       proyecto: data.vivienda?.proyecto || "",
       tipoVivienda: data.vivienda?.tipoVivienda || "",
       valorVivienda: data.vivienda?.valorVivienda || 0,
-      modalidadVivienda: data.vivienda?.modalidadVivienda || "",
+      viviendaSostenible: data.vivienda?.viviendaSostenible || 0,
+      bonoBbp: data.vivienda?.bonoBbp || 0,
       cuotaInicial: data.vivienda?.cuotaInicial || 0,
       cuotaInicialPorcentaje: data.vivienda?.cuotaInicialPorcentaje || 0,
-      tipoVIS: data.vivienda?.tipoVIS || "",
+      tipoBBP: data.vivienda?.tipoBBP || "",
       ubicacion: data.vivienda?.ubicacion || ""
     }
   };
@@ -155,7 +156,7 @@ onMounted(() => {
   <div class="clientes-view">
     <!-- Header -->
     <div class="page-header mb-4">
-      <h1 class="page-title">LISTA DE CLIENTES</h1>
+      <h1 class="page-title">LISTA DE CLIENTES / NCMV</h1>
     </div>
 
     <!-- Content Card -->

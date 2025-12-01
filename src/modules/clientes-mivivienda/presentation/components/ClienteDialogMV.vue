@@ -1,4 +1,4 @@
-<!-- src/modules/clientes/presentation/components/ClienteDialog.vue -->
+<!-- src/modules/clientes/presentation/components/ClienteDialogMV.vue -->
 <script setup>
 import { ref, watch, computed } from 'vue';
 
@@ -31,10 +31,11 @@ const form = ref({
     proyecto: "",
     tipoVivienda: "",
     valorVivienda: 0,
-    modalidadVivienda: "",
+    viviendaSostenible: 0,
+    bonoBbp: 0,
     cuotaInicial: 0,
     cuotaInicialPorcentaje: 0,
-    tipoVIS: "",
+    tipoBBP: "",
     ubicacion: ""
   }
 });
@@ -49,8 +50,9 @@ const errors = ref({
   viviendaTipo: "",
   viviendaValor: "",
   viviendaCuotaInicial: "",
-  viviendaModalidad: "",
-  viviendaVIS: "",
+  viviendaSostenible:"",
+  bonoBbp:"",
+  tipoBbp:"",
   viviendaUbicacion: ""
 });
 
@@ -508,9 +510,10 @@ watch(
 
       // Sincroniza automáticamente el resto de campos
       form.value.vivienda.tipoVivienda = v.tipo_vivienda;
-      form.value.vivienda.modalidadVivienda = v.modalidad_vivienda;
+      form.value.vivienda.viviendaSostenible=v.vivienda_sostenible;
+      form.value.vivienda.bonoBbp=v.bono_bbp;
       form.value.vivienda.valorVivienda = Number(v.valor_vivienda);
-      form.value.vivienda.tipoVIS = v.tipo_vis;
+      form.value.vivienda.tipoBBP = v.tipo_bbp;
       form.value.vivienda.ubicacion = v.ubicacion;
 
       // Recalcular cuota inicial según porcentaje VIS
@@ -911,9 +914,9 @@ function handleClose() {
 
         <!-- Tipo VIS -->
         <div class="col-12 md:col-6">
-          <label class="form-label">Tipo de VIS</label>
+          <label class="form-label">Tipo de BBP</label>
           <Dropdown
-              v-model="form.vivienda.tipoVIS"
+              v-model="form.vivienda.tipoBBP"
               :options="tiposVISFiltrados"
               optionLabel="label"
               optionValue="value"

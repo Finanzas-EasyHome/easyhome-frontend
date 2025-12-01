@@ -8,17 +8,18 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
     // ============================================================
     async findAll() {
         const { data, error } = await supabase
-            .from("clientes_techo_propio")
+            .from("clientes_ncmv")
             .select(`
             *,
-            vivienda:vivienda_techo_propio!vivienda_techo_propio_fk_cliente_fkey (
+            vivienda:viviendas_ncmv!fk_cliente (
             id,
                 proyecto,
                 tipo_vivienda,
                 valor_vivienda,
-                modalidad_vivienda,
                 porcentaje_cuota_inicial,
-                tipo_vis,
+                vivienda_sostenible,
+                bono_bbp,
+                tipo_bbp,
                 ubicacion
             )
         `);
@@ -49,12 +50,12 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
                         proyecto: v.proyecto,
                         tipoVivienda: v.tipo_vivienda,
                         valorVivienda: v.valor_vivienda,
-                        modalidadVivienda: v.modalidad_vivienda,
+                        viviendaSostenible: v.vivienda_sostenible,
                         cuotaInicial:
                             Number(v.valor_vivienda) *
                             (Number(v.porcentaje_cuota_inicial) / 100),
                         cuotaInicialPorcentaje: v.porcentaje_cuota_inicial,
-                        tipoVIS: v.tipo_vis,
+                        tipoBBP: v.tipo_bbp,
                         ubicacion: v.ubicacion,
                     }
                     : null
@@ -64,17 +65,18 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
 
     async findById(id) {
         const { data, error } = await supabase
-            .from("clientes_techo_propio")
+            .from("clientes_ncmv")
             .select(`
             *,
-            vivienda:vivienda_techo_propio!vivienda_techo_propio_fk_cliente_fkey (
+            vivienda:viviendas_ncmv!fk_cliente (
                 id,
                 proyecto,
                 tipo_vivienda,
                 valor_vivienda,
-                modalidad_vivienda,
+                vivenda_sostenible,
+                bono_bbp,
                 porcentaje_cuota_inicial,
-                tipo_vis,
+                tipo_bbp,
                 ubicacion
             )
         `)
@@ -107,12 +109,12 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
                     proyecto: v.proyecto,
                     tipoVivienda: v.tipo_vivienda,
                     valorVivienda: v.valor_vivienda,
-                    modalidadVivienda: v.modalidad_vivienda,
+                    viviendaSostenible: v.vivienda_sostenible,
                     cuotaInicial:
                         Number(v.valor_vivienda) *
                         (Number(v.porcentaje_cuota_inicial) / 100),
                     cuotaInicialPorcentaje: v.porcentaje_cuota_inicial,
-                    tipoVIS: v.tipo_vis,
+                    tipoBBP: v.tipo_bbp,
                     ubicacion: v.ubicacion,
                 }
                 : null
@@ -123,7 +125,7 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
 
         // 1 Crear cliente
         const { data: newClient, error: clienteError } = await supabase
-            .from("clientes_techo_propio")
+            .from("clientes_ncmv")
             .insert({
                 nombres_completos: cliente.nombresApellidos,
                 dni: cliente.dni,
@@ -145,15 +147,16 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
         const vivienda = cliente.vivienda;
 
         const { error: viviendaError } = await supabase
-            .from("vivienda_techo_propio")
+            .from("viviendas_ncmv")
             .insert({
                 fk_cliente: newClient.id,
                 proyecto: vivienda.proyecto,
                 tipo_vivienda: vivienda.tipoVivienda,
                 valor_vivienda: vivienda.valorVivienda,
-                modalidad_vivienda: vivienda.modalidadVivienda,
+                vivienda_sostenible: vivienda.viviendaSostenible,
+                bono_bbp: vivienda.bonoBbp,
                 porcentaje_cuota_inicial: vivienda.cuotaInicialPorcentaje,
-                tipo_vis: vivienda.tipoVIS,
+                tipo_bbp: vivienda.tipoBBP,
                 ubicacion: vivienda.ubicacion,
                 fecha_registro: new Date()
             });
@@ -181,7 +184,7 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
 
         // Actualizar cliente
         const { error: clienteError } = await supabase
-            .from("clientes_techo_propio")
+            .from("clientes_ncmv")
             .update({
                 nombres_completos: cliente.nombresApellidos,
                 dni: cliente.dni,
@@ -212,14 +215,15 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
 
         // Actualizar vivienda
         const { error: viviendaError } = await supabase
-            .from("vivienda_techo_propio")
+            .from("viviendas_ncmv")
             .update({
                 proyecto: cliente.vivienda.proyecto,
                 tipo_vivienda: cliente.vivienda.tipoVivienda,
                 valor_vivienda: Number(cliente.vivienda.valorVivienda),
-                modalidad_vivienda: cliente.vivienda.modalidadVivienda,
+                viviendaSostenible: Number(cliente.vivienda.viviendaSostenible),
+                bono_bbp: Number(cliente.vivienda.bonoBbp),
                 porcentaje_cuota_inicial: Number(cliente.vivienda.cuotaInicialPorcentaje),
-                tipo_vis: cliente.vivienda.tipoVIS,
+                tipo_bbp: cliente.vivienda.tipoBBP,
                 ubicacion: cliente.vivienda.ubicacion
 
             })
@@ -240,7 +244,7 @@ export class ClienteRepositoryImplMV extends ClienteRepositoryMV {
     // ============================================================
     async delete(id) {
         const { error } = await supabase
-            .from("clientes_techo_propio")
+            .from("clientes_ncmv")
             .delete()
             .eq("id", id);
 

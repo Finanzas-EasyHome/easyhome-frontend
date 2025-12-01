@@ -6,6 +6,7 @@ export class GetAllClientes {
     /**
      * Ejecuta el caso de uso
      * @returns {Promise<Array>}
+     * NCMV
      */
     async execute() {
         try {

@@ -1,4 +1,4 @@
-// src/modules/clientes/presentation/composables/useClientes.js
+// src/modules/clientes-mivivienda/presentation/composables/useClientes.js
 
 import { ref, computed } from 'vue';
 import { ClienteRepositoryImplMV } from '../../infrastructure/repositories/ClienteRepositoryImplMV.js';
