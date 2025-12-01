@@ -171,15 +171,29 @@ export const useSimulador = () => {
             return [];
         }
     };
-    const fetchClienteConVivienda = async (clienteId) => {
+
+    /**
+     * 🔥 NUEVA FUNCIÓN UNIFICADA: Obtiene cliente con vivienda según programa
+     */
+    const fetchClienteConVivienda = async (clienteId, programa) => {
         loading.value = true;
         error.value = null;
 
         try {
-            const data = await repository.getClienteConVivienda(clienteId);
+            const esNCMV = programa === 'miVivienda' ||
+                programa === 'miViviendaVerde' ||
+                programa === 'convencional';
+
+            console.log(`🔍 Obteniendo cliente ${clienteId} del programa ${programa} (NCMV: ${esNCMV})`);
+
+            const data = esNCMV
+                ? await repository.getClienteConViviendaNCMV(clienteId)
+                : await repository.getClienteConVivienda(clienteId);
+
+            console.log('✅ Datos del cliente obtenidos:', data);
             return data;
         } catch (e) {
-            console.error("Error al obtener cliente:", e);
+            console.error("❌ Error al obtener cliente:", e);
             error.value = "No se pudo cargar la información del cliente";
             throw e;
         } finally {
@@ -200,13 +214,77 @@ export const useSimulador = () => {
         }
     };
 
+    /**
+     * 🏠 FUNCIÓN MEJORADA: Obtiene el bono de Techo Propio
+     * Valida que ambos parámetros existan antes de consultar
+     */
     const fetchBonoTechoPropio = async (modalidad, tipoVis) => {
         try {
-            const repo = new SimuladorRepositoryImpl();
-            const bono = await repo.getBonoTechoPropio(modalidad, tipoVis);
-            return bono ?? 0;
+            // ⚠️ VALIDACIÓN: Verificar que ambos campos existan
+            if (!modalidad || modalidad.trim() === '') {
+                console.warn('⚠️ fetchBonoTechoPropio: modalidad_vivienda está vacía');
+                return 0;
+            }
+
+            if (!tipoVis || tipoVis.trim() === '') {
+                console.warn('⚠️ fetchBonoTechoPropio: tipo_vis está vacío');
+                return 0;
+            }
+
+            console.log(`🔍 Consultando bono Techo Propio: "${modalidad}" + "${tipoVis}"`);
+
+            const bono = await repository.getBonoTechoPropio(modalidad, tipoVis);
+            const montoFinal = Number(bono ?? 0);
+
+            if (montoFinal > 0) {
+                console.log(`💰 Bono encontrado: S/ ${montoFinal.toFixed(2)}`);
+            } else {
+                console.log(`⚠️ No existe bono para: ${modalidad} - ${tipoVis}`);
+            }
+
+            return montoFinal;
         } catch (error) {
-            console.error("Error obteniendo bono:", error);
+            console.error("❌ Error obteniendo bono Techo Propio:", error);
+            return 0;
+        }
+    };
+
+    /**
+     * 🆕 NUEVA FUNCIÓN: Calcula bono BBP para NCMV
+     */
+    const fetchBonoBBP = async (valorVivienda, tipoBBP) => {
+        try {
+            // Determinar rango según valor de vivienda
+            let rango = '';
+            if (valorVivienda >= 68800 && valorVivienda <= 98100) rango = 'R1';
+            else if (valorVivienda > 98100 && valorVivienda <= 146900) rango = 'R2';
+            else if (valorVivienda > 146900 && valorVivienda <= 244600) rango = 'R3';
+            else if (valorVivienda > 244600 && valorVivienda <= 362100) rango = 'R4';
+            else if (valorVivienda > 362100 && valorVivienda <= 488800) rango = 'R5';
+            else {
+                console.log('⚠️ Valor de vivienda fuera de rangos BBP:', valorVivienda);
+                return 0;
+            }
+
+            if (!tipoBBP || tipoBBP === 'No aplica') {
+                console.log('⚠️ Cliente sin BBP');
+                return 0;
+            }
+
+            console.log(`🔍 Consultando BBP: Rango ${rango}, Tipo ${tipoBBP}`);
+
+            const data = await repository.getBonoBBP(rango, tipoBBP);
+            const montoFinal = Number(data?.monto ?? 0);
+
+            if (montoFinal > 0) {
+                console.log(`💰 Bono BBP encontrado: S/ ${montoFinal.toFixed(2)}`);
+            } else {
+                console.log(`⚠️ No existe bono BBP para: ${rango} - ${tipoBBP}`);
+            }
+
+            return montoFinal;
+        } catch (error) {
+            console.error("❌ Error obteniendo bono BBP:", error);
             return 0;
         }
     };
@@ -323,6 +401,7 @@ export const useSimulador = () => {
         fetchProgramasVivienda,
         fetchTasasEntidad,
         fetchBonoTechoPropio,
+        fetchBonoBBP, // 🆕 NUEVA FUNCIÓN EXPORTADA
         fetchClienteConVivienda,
         exportarCronograma,
         clearError

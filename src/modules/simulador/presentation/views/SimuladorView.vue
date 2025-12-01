@@ -24,10 +24,12 @@ const {
   exportarCronograma,
   fetchTasasEntidad,
   fetchBonoTechoPropio,
+  fetchBonoBBP,              //  AGREGAR ESTA LÍNEA
+  fetchClienteConVivienda,   //  AGREGAR ESTA LÍNEA
 } = useSimulador();
 
 const { allClientes, fetchClientes } = useClientes();
-// 🆕 NUEVO: Clientes dinámicos según programa
+//  NUEVO: Clientes dinámicos según programa
 const clientesDinamicos = ref([]);
 const cargandoClientes = ref(false);
 
@@ -364,16 +366,10 @@ const cargarClientesPorPrograma = async (programa) => {
 const cargarDatosCliente = async (clienteId) => {
   try {
     const programa = formData.value.programaObjetivo;
-    const esNCMV = programa === 'miVivienda' ||
-        programa === 'miViviendaVerde' ||
-        programa === 'convencional';
 
-    console.log(`🔍 Cargando cliente ${clienteId} del programa ${programa}`);
-    console.log(`📊 Es NCMV: ${esNCMV}`);
+    console.log(` Cargando cliente ${clienteId} del programa ${programa}`);
 
-    const info = esNCMV
-        ? await repository.getClienteConViviendaNCMV(clienteId)
-        : await repository.getClienteConVivienda(clienteId);
+    const info = await fetchClienteConVivienda(clienteId, programa);
 
     if (!info) {
       toast.add({
@@ -385,12 +381,10 @@ const cargarDatosCliente = async (clienteId) => {
       return;
     }
 
-    // CLIENTE
     formData.value.clienteNombre = info.nombres_completos ||
         `${info.nombres || ''} ${info.apellidos || ''}`.trim();
     formData.value.clienteId = info.id;
 
-    // VIVIENDA
     const vivienda = info.vivienda;
     if (!vivienda) {
       toast.add({
@@ -402,38 +396,24 @@ const cargarDatosCliente = async (clienteId) => {
       return;
     }
 
-    // Datos comunes de vivienda
     formData.value.valorVivienda = Number(vivienda.valor_vivienda || 0);
-
-    // 🔥 AMBAS TABLAS usan porcentaje_cuota_inicial
     formData.value.cuotaInicialPorcentaje = Number(vivienda.porcentaje_cuota_inicial || 0);
     formData.value.cuotaInicial = formData.value.valorVivienda * (formData.value.cuotaInicialPorcentaje / 100);
 
-    // Campos específicos por programa
+    const esNCMV = programa === 'miVivienda' || programa === 'miViviendaVerde' || programa === 'convencional';
+
     if (esNCMV) {
       formData.value.modalidadVivienda = vivienda.tipo_vivienda || '';
       formData.value.tipoVis = vivienda.tipo_bbp || '';
-
-      console.log('📦 Datos NCMV cargados:', {
-        tipo_vivienda: vivienda.tipo_vivienda,
-        tipo_bbp: vivienda.tipo_bbp,
-        vivienda_sostenible: vivienda.vivienda_sostenible,
-        bono_bbp: vivienda.bono_bbp
-      });
+      console.log('📦 NCMV:', { tipo_vivienda: vivienda.tipo_vivienda, tipo_bbp: vivienda.tipo_bbp });
     } else {
       formData.value.modalidadVivienda = vivienda.modalidad_vivienda || '';
       formData.value.tipoVis = vivienda.tipo_vis || '';
-
-      console.log('🏠 Datos Techo Propio cargados:', {
-        modalidad_vivienda: vivienda.modalidad_vivienda,
-        tipo_vis: vivienda.tipo_vis
-      });
+      console.log('🏠 Techo Propio:', { modalidad: vivienda.modalidad_vivienda, tipo_vis: vivienda.tipo_vis });
     }
 
-    // Calcular monto de bono según programa
     await calcularBonoPorPrograma();
 
-    // Calcular saldo a financiar
     formData.value.montoFinanciado =
         formData.value.valorVivienda -
         formData.value.cuotaInicial -
@@ -442,26 +422,23 @@ const cargarDatosCliente = async (clienteId) => {
     toast.add({
       severity: 'success',
       summary: 'Datos cargados',
-      detail: `Datos del cliente ${formData.value.clienteNombre} cargados correctamente`,
-      life: 2000
+      detail: `${formData.value.clienteNombre} | Bono: S/ ${formData.value.montoBono.toFixed(2)}`,
+      life: 3000
     });
 
-    console.log('✅ Datos cliente cargados:', {
-      cliente: formData.value.clienteNombre,
-      programa: programa,
-      valorVivienda: formData.value.valorVivienda,
-      cuotaInicialPorcentaje: formData.value.cuotaInicialPorcentaje,
-      cuotaInicial: formData.value.cuotaInicial,
-      montoBono: formData.value.montoBono,
-      montoFinanciado: formData.value.montoFinanciado
+    console.log(' RESUMEN:', {
+      programa,
+      modalidad: formData.value.modalidadVivienda,
+      tipoVis: formData.value.tipoVis,
+      montoBono: formData.value.montoBono
     });
 
   } catch (error) {
-    console.error('Error al cargar datos del cliente:', error);
+    console.error(' Error al cargar cliente:', error);
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: error.message || 'No se pudo cargar la información del cliente',
+      detail: error.message,
       life: 3000
     });
   }
@@ -472,38 +449,50 @@ const cargarDatosCliente = async (clienteId) => {
  */
 const calcularBonoPorPrograma = async () => {
   const programa = formData.value.programaObjetivo;
-  const esNCMV = programa === 'miVivienda' ||
-      programa === 'miViviendaVerde' ||
-      programa === 'convencional';
+  const esNCMV = programa === 'miVivienda' || programa === 'miViviendaVerde' || programa === 'convencional';
 
-  if (esNCMV) {
-    // 🆕 BONO BBP PARA NCMV
-    await calcularBonoBBP();
-  } else {
-    // BONO TECHO PROPIO (código existente)
-    const modalidad = formData.value.modalidadVivienda;
-    const tipoVis = formData.value.tipoVis;
+  try {
+    if (esNCMV) {
+      const bono = await fetchBonoBBP(formData.value.valorVivienda, formData.value.tipoVis);
+      formData.value.montoBono = bono;
+    } else {
+      const modalidad = formData.value.modalidadVivienda;
+      const tipoVis = formData.value.tipoVis;
 
-    if (!modalidad || !tipoVis) {
-      formData.value.montoBono = 0;
-      return;
+      if (!modalidad || !tipoVis) {
+        console.warn(' Faltan datos:', { modalidad, tipoVis });
+        formData.value.montoBono = 0;
+        toast.add({
+          severity: 'warn',
+          summary: 'Datos incompletos',
+          detail: 'Falta modalidad o tipo de VIS',
+          life: 3000
+        });
+        return;
+      }
+
+      const bono = await fetchBonoTechoPropio(modalidad, tipoVis);
+      formData.value.montoBono = bono;
+
+      if (bono > 0) {
+        toast.add({
+          severity: 'success',
+          summary: 'Bono asignado',
+          detail: `S/ ${bono.toFixed(2)} para ${modalidad} - ${tipoVis}`,
+          life: 3000
+        });
+      } else {
+        toast.add({
+          severity: 'info',
+          summary: 'Sin bono',
+          detail: `No hay bono para ${modalidad} - ${tipoVis}`,
+          life: 3000
+        });
+      }
     }
-
-    try {
-      const { data, error } = await supabase
-          .from('bono_techo_propio')
-          .select('monto')
-          .eq('modalidad_vivienda', modalidad)
-          .eq('tipo_vis', tipoVis)
-          .single();
-
-      if (error) throw error;
-      formData.value.montoBono = Number(data?.monto || 0);
-      console.log(`💰 Bono Techo Propio: S/ ${formData.value.montoBono}`);
-    } catch (err) {
-      console.error('Error obteniendo bono Techo Propio:', err);
-      formData.value.montoBono = 0;
-    }
+  } catch (err) {
+    console.error(' Error calculando bono:', err);
+    formData.value.montoBono = 0;
   }
 };
 
